@@ -1,38 +1,128 @@
 from django.db import models
-from django.contrib.auth.models import User
+from django.contrib.auth.models import AbstractUser, BaseUserManager
+from django.utils.translation import gettext_lazy as _
 
 
-# добавить choices в модели, в которых есть готовые типы
+USER_TYPE_CHOICES = (
+    ('shop', 'Shop'),
+    ('buyer', 'Buyer'),
+)
+
+
+ORDER_STATUSES = (
+    ('new', 'New'),
+    ('confirmed', 'Confirmed'),
+    ('assembled', 'Ready for shipping'),
+    ('shipped', 'Shipped'),
+    ('delivered', 'Delivered'),
+    ('returned', 'Returned'),
+)
+
+
+class UserManager(BaseUserManager):
+
+    use_in_migrations = True
+
+    def _create_user(self, email, password, **extra_fields):
+        if not email:
+            raise ValueError('The given email must be set')
+        email = self.normalize_email(email)
+        user = self.model(email=email, **extra_fields)
+        user.set_password(password)
+        user.save(using=self._db)
+        return user
+
+    def create_user(self, email, password=None, **extra_fields):
+        extra_fields.setdefault('is_staff', False)
+        extra_fields.setdefault('is_superuser', False)
+        return self._create_user(email, password, **extra_fields)
+
+    def create_superuser(self, email, password, **extra_fields):
+        """Create and save a SuperUser with the given email and password."""
+        extra_fields.setdefault('is_staff', True)
+        extra_fields.setdefault('is_superuser', True)
+
+        if extra_fields.get('is_staff') is not True:
+            raise ValueError('Superuser must have is_staff=True.')
+        if extra_fields.get('is_superuser') is not True:
+            raise ValueError('Superuser must have is_superuser=True.')
+
+        return self._create_user(email, password, **extra_fields)
+
+
+class User(AbstractUser):
+    # objects = UserManager()
+    REQUIRED_FIELDS = ['username']
+    USERNAME_FIELD = 'email'
+    email = models.EmailField(_('Email'),
+        unique=True,
+        error_messages={
+              'unique': _("This email address is already exists."),
+            },
+    )
+    company = models.CharField(verbose_name='Company', max_length=40, blank=True)
+    position = models.CharField(verbose_name='Position', max_length=40, blank=True)
+    first_name = models.CharField(verbose_name='First name', max_length=40, blank=True)
+    middle_name = models.CharField(verbose_name='Middle name', max_length=40, blank=True)
+    last_name = models.CharField(verbose_name='Last name', max_length=40, blank=True)
+    # username_validator = UnicodeUsernameValidator()
+    username = models.CharField(
+        _('Username'),
+        max_length=150,
+        unique=True,
+        help_text=_('Required. 150 characters or fewer. Letters, digits and @/./+/-/_ only.'),
+        # validators=[username_validator],
+        error_messages={
+            'unique': _("A user with that username already exists."),
+        },
+    )
+    is_active = models.BooleanField(
+        _('active'),
+        default=True,
+        help_text=_(
+            'Designates whether this user should be treated as active. '
+            'Unselect this instead of deleting accounts.'
+        ),
+    )
+    type = models.CharField(verbose_name='User type', choices=USER_TYPE_CHOICES, max_length=5, default='buyer')
+
+    def __str__(self):
+        return f'{self.first_name} {self.last_name}'
+
+    class Meta:
+        verbose_name = 'User'
+        verbose_name_plural = "User list"
+        ordering = ('email',)
 
 
 class Shop(models.Model):
-    name = models.CharField(max_length=50, verbose_name='Название')
-    url = models.URLField(null=True, blank=True, verbose_name='Ссылка')
+    name = models.CharField(max_length=50, verbose_name='Name')
+    url = models.URLField(null=True, blank=True, verbose_name='Url')
     filename = models.CharField(max_length=50)
 
     class Meta:
-        verbose_name = 'Магазин'
-        verbose_name_plural = "Список магазинов"
+        verbose_name = 'Shop'
+        verbose_name_plural = "Shops list"
 
     def __str__(self):
         return self.name
 
 
 class Category(models.Model):
-    name = models.CharField(max_length=50, verbose_name='Название')
-    shops = models.ManyToManyField(Shop, verbose_name='Магазины', related_name='categories', blank=True)
+    name = models.CharField(max_length=50, verbose_name='Name')
+    shops = models.ManyToManyField(Shop, verbose_name='Shops', related_name='categories', blank=True)
 
     class Meta:
-        verbose_name = 'Категория'
-        verbose_name_plural = 'Список категорий'
+        verbose_name = 'Category'
+        verbose_name_plural = 'Categories list'
 
     def __str__(self):
         return self.name
 
 
 class Product(models.Model):
-    name = models.CharField(max_length=100, verbose_name='Название')
-    category = models.ForeignKey(Category, verbose_name='Категория', related_name='products', blank=True,
+    name = models.CharField(max_length=100, verbose_name='Name')
+    category = models.ForeignKey(Category, verbose_name='Category', related_name='products', blank=True,
                                  on_delete=models.CASCADE)
 
     def __str__(self):
@@ -40,27 +130,27 @@ class Product(models.Model):
 
 
 class ProductInfo(models.Model):
-    product = models.ForeignKey(Product, verbose_name='Продукт', related_name='product_infos', blank=True,
+    product = models.ForeignKey(Product, verbose_name='Product', related_name='product_infos', blank=True,
                                 on_delete=models.CASCADE)
-    external_id = models.IntegerField(verbose_name='Внешний артикул', blank=True)
-    model = models.CharField(max_length=80, verbose_name='Модель', blank=True)
-    shop = models.ForeignKey(Shop, verbose_name='Магазин', related_name='product_infos', blank=True,
+    external_id = models.IntegerField(verbose_name='External ID', blank=True)
+    model = models.CharField(max_length=80, verbose_name='Model', blank=True)
+    shop = models.ForeignKey(Shop, verbose_name='Shop', related_name='product_infos', blank=True,
                              on_delete=models.CASCADE)
-    quantity = models.IntegerField(verbose_name='Количество')
-    price = models.IntegerField(verbose_name='Цена')
-    price_rrc = models.IntegerField(verbose_name='Рекомендуемая розничная цена')
+    quantity = models.IntegerField(verbose_name='Quantity')
+    price = models.IntegerField(verbose_name='Price')
+    price_rrc = models.IntegerField(verbose_name='Recommended retail price')
 
     class Meta:
-        verbose_name = 'Информация о продукте'
-        verbose_name_plural = "Список информации о продуктах"
+        verbose_name = 'Product info'
+        verbose_name_plural = "Product info list"
 
 
 class Parameter(models.Model):
-    name = models.CharField(max_length=40, verbose_name='Название')
+    name = models.CharField(max_length=40, verbose_name='Name')
 
     class Meta:
-        verbose_name = 'Имя параметра'
-        verbose_name_plural = "Список имен параметров"
+        verbose_name = 'Parameter name'
+        verbose_name_plural = "Parameter names list"
         ordering = ('-name',)
 
     def __str__(self):
@@ -68,49 +158,51 @@ class Parameter(models.Model):
 
 
 class ProductParameter(models.Model):
-    product_info = models.ForeignKey(ProductInfo, verbose_name='Информация о продукте',
+    product_info = models.ForeignKey(ProductInfo, verbose_name='Product info',
                                      related_name='product_parameters', blank=True,
                                      on_delete=models.CASCADE)
-    parameter = models.ForeignKey(Parameter, verbose_name='Параметр', related_name='product_parameters', blank=True,
+    parameter = models.ForeignKey(Parameter, verbose_name='Parameter', related_name='product_parameters', blank=True,
                                   on_delete=models.CASCADE)
-    value = models.CharField(verbose_name='Значение', max_length=100)
+    value = models.CharField(verbose_name='Value', max_length=100)
 
     class Meta:
-        verbose_name = 'Параметр'
-        verbose_name_plural = "Список параметров"
+        verbose_name = 'Parameter'
+        verbose_name_plural = "Parameters list"
 
 
 class Contact(models.Model):
-    user = models.ForeignKey(User, verbose_name='Пользователь',
+    user = models.ForeignKey(User, verbose_name='User',
                              related_name='contacts', blank=True,
                              on_delete=models.CASCADE)
-    type = models.CharField(max_length=20)
-    # Использовать здесь ChoiceField? Добавить выбор choices
-    value = models.EmailField(verbose_name='Электронная почта')
+    city = models.CharField(max_length=50, verbose_name='City', blank=True)
+    street = models.CharField(max_length=100, verbose_name='Street', blank=True)
+    building = models.CharField(max_length=15, verbose_name='Building', blank=True)
+    apartment = models.CharField(max_length=15, verbose_name='Apartment', blank=True)
+    phone = models.CharField(max_length=20, verbose_name='Phone', blank=True)
+
     # Сделать больше параметров контакта
 
     class Meta:
-        verbose_name = 'Контакты пользователя'
-        verbose_name_plural = 'Список контактов пользователя'
+        verbose_name = 'User contacts'
+        verbose_name_plural = 'User contacts list'
 
     def __str__(self):
         return self.user
 
 
 class Order(models.Model):
-    user = models.ForeignKey(User, verbose_name='Пользователь',
+    user = models.ForeignKey(User, verbose_name='User',
                              related_name='orders', blank=True,
                              on_delete=models.CASCADE)
     dt = models.DateTimeField(auto_now_add=True)
-    state = models.CharField(verbose_name='Статус', max_length=20)
-    # Добавить выбор статуса!
-    contact = models.ForeignKey(Contact, verbose_name='Контакт',
+    status = models.CharField(verbose_name='Status', choices=ORDER_STATUSES, max_length=20, blank=True)
+    contact = models.ForeignKey(Contact, verbose_name='Contact',
                                 blank=True, null=True,
                                 on_delete=models.CASCADE)
 
     class Meta:
-        verbose_name = 'Заказ'
-        verbose_name_plural = "Список заказов"
+        verbose_name = 'Order'
+        verbose_name_plural = "Orders list"
         ordering = ('-dt',)
 
     def __str__(self):
@@ -118,14 +210,14 @@ class Order(models.Model):
 
 
 class OrderItem(models.Model):
-    order = models.ForeignKey(Order, verbose_name='Заказ', related_name='ordered_items', blank=True,
+    order = models.ForeignKey(Order, verbose_name='Order', related_name='ordered_items', blank=True,
                               on_delete=models.CASCADE)
 
-    product_info = models.ForeignKey(ProductInfo, verbose_name='Информация о продукте', related_name='ordered_items',
+    product_info = models.ForeignKey(ProductInfo, verbose_name='Product info', related_name='ordered_items',
                                      blank=True,
                                      on_delete=models.CASCADE)
-    quantity = models.IntegerField(verbose_name='Количество')
+    quantity = models.IntegerField(verbose_name='Quantity')
 
     class Meta:
-        verbose_name = 'Заказанная позиция'
-        verbose_name_plural = "Список заказанных позиций"
+        verbose_name = 'Ordered item'
+        verbose_name_plural = "Ordered items list"

@@ -1,11 +1,15 @@
 from django import forms
-from django.contrib.auth.forms import UserCreationForm
+from .models import USER_TYPE_CHOICES
 
-from django.contrib.auth.models import User
+# from django.contrib.auth.models import User
+from django.contrib.auth import get_user_model
+User = get_user_model()
+
 
 class UserRegistrationForm(forms.ModelForm):
     password = forms.CharField(label='Password', widget=forms.PasswordInput)
     password2 = forms.CharField(label='Repeat password', widget=forms.PasswordInput)
+    type = forms.ChoiceField(label='User type', choices=USER_TYPE_CHOICES)
     first_name = forms.CharField(label='Name', required=False)
     middle_name = forms.CharField(label='Middle name', required=False)
     last_name = forms.CharField(label='Last name', required=False)
