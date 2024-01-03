@@ -10,6 +10,7 @@ USER_TYPE_CHOICES = (
 
 
 ORDER_STATUSES = (
+    ('basker', 'Basket'),
     ('new', 'New'),
     ('confirmed', 'Confirmed'),
     ('assembled', 'Ready for shipping'),
@@ -98,7 +99,10 @@ class User(AbstractUser):
 class Shop(models.Model):
     name = models.CharField(max_length=50, verbose_name='Name')
     url = models.URLField(null=True, blank=True, verbose_name='Url')
-    filename = models.CharField(max_length=50)
+    user = models.OneToOneField(User, verbose_name='Пользователь',
+                                blank=True, null=True,
+                                on_delete=models.CASCADE)
+    # filename = models.CharField(max_length=50)
 
     class Meta:
         verbose_name = 'Shop'
@@ -180,7 +184,6 @@ class Contact(models.Model):
     apartment = models.CharField(max_length=15, verbose_name='Apartment', blank=True)
     phone = models.CharField(max_length=20, verbose_name='Phone', blank=True)
 
-    # Сделать больше параметров контакта
 
     class Meta:
         verbose_name = 'User contacts'

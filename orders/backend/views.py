@@ -1,14 +1,18 @@
 from .models import Shop, Category, Product, ProductInfo, ProductParameter, Parameter, Contact, Order, OrderItem
 
 from rest_framework.views import APIView
+from rest_framework.generics import ListAPIView
 import yaml
 from django.http import JsonResponse
 from django.contrib import messages
 from django.contrib.auth import login, authenticate
 from django.contrib.auth.forms import AuthenticationForm
 from django.shortcuts import render, redirect
+
 from .forms import UserRegistrationForm
 from django.contrib.auth import get_user_model
+from django.contrib.auth.password_validation import validate_password
+from .serializers import ShopSerializer, CategorySerializer, ProductInfoSerializer, UserSerializer
 
 User = get_user_model()
 
@@ -50,37 +54,95 @@ class ImportDataFromYAML(APIView):
             return JsonResponse({'Status': True})
 
 
+class AccountRegistration(APIView):
+
+    # def get(self, request, *args, **kwargs):
+    #     if request.method == 'POST':
+    #
+    #         user_form = UserRegistrationForm(request.POST)
+    #         if user_form.is_valid():
+    #             new_user = user_form.save(commit=False)
+    #             new_user.set_password(user_form.cleaned_data['password'])
+    #             new_user.save()
+    #             return render(request, 'register_done.html', {'new_user': new_user})
+    #     else:
+    #         user_form = UserRegistrationForm()
+    #     return render(request, 'register.html', {'user_form': user_form})
+
+    def post(self, request, *args, **kwargs):
+        if {'first_name', 'last_name', 'email', 'password', 'company', 'position'}.issubset(request.data):
+            errors = {}
+            try:
+                validate_password(request.data['password'])
+            except Exception as password_error:
+                error_array = []
+                # noinspection PyTypeChecker
+                for item in password_error:
+                    error_array.append(item)
+                return JsonResponse({'Status': False, 'Errors': {'password': error_array}})
+            else:
+                # проверяем данные для уникальности имени пользователя
+                request.data.update({})
+                user_serializer = UserSerializer(data=request.data)
+                if user_serializer.is_valid():
+                    # сохраняем пользователя
+                    user = user_serializer.save()
+                    user.set_password(request.data['password'])
+                    user.save()
+                    # new_user_registered.send(sender=self.__class__, user_id=user.id)
+
+                    return JsonResponse({'Status': True})
+                else:
+
+                    return JsonResponse({'Status': False, 'Errors': user_serializer.errors})
+        x = type(request.data)
+        return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы', 'a': str(x)})
+
 def index(request):
     return render(request, 'index.html', {})
 
+#
+# def register(request):
+#     if request.method == 'POST':
+#         user_form = UserRegistrationForm(request.POST)
+#         if user_form.is_valid():
+#             new_user = user_form.save(commit=False)
+#             new_user.set_password(user_form.cleaned_data['password'])
+#             new_user.save()
+#             return render(request, 'register_done.html', {'new_user': new_user})
+#     else:
+#         user_form = UserRegistrationForm()
+#     return render(request, 'register.html', {'user_form': user_form})
+#
+#
+# def login_request(request):
+#     if request.method == 'POST':
+#         form = AuthenticationForm(request, data=request.POST)
+#         if form.is_valid():
+#             username = form.cleaned_data.get('username')
+#             password = form.cleaned_data.get('password')
+#             user = authenticate(username=username, password=password)
+#             if user is not None:
+#                 login(request, user)
+#                 messages.info(request, f'You are now logged in as {username}.')
+#                 return redirect('index')
+#             else:
+#                 messages.error(request, "Invalid username or password.")
+#         else:
+#             messages.error(request, 'Invalid username or password.')
+#     form = AuthenticationForm()
+#     return render(request=request, template_name='login.html', context={'login_form': form})
 
-def register(request):
-    if request.method == 'POST':
-        user_form = UserRegistrationForm(request.POST)
-        if user_form.is_valid():
-            new_user = user_form.save(commit=False)
-            new_user.set_password(user_form.cleaned_data['password'])
-            new_user.save()
-            return render(request, 'register_done.html', {'new_user': new_user})
-    else:
-        user_form = UserRegistrationForm()
-    return render(request, 'register.html', {'user_form': user_form})
+class ShopView(ListAPIView):
+    queryset = Shop.objects.all()
+    serializer_class = ShopSerializer
 
 
-def login_request(request):
-    if request.method == 'POST':
-        form = AuthenticationForm(request, data=request.POST)
-        if form.is_valid():
-            username = form.cleaned_data.get('username')
-            password = form.cleaned_data.get('password')
-            user = authenticate(username=username, password=password)
-            if user is not None:
-                login(request, user)
-                messages.info(request, f'You are now logged in as {username}.')
-                return redirect('index')
-            else:
-                messages.error(request, "Invalid username or password.")
-        else:
-            messages.error(request, 'Invalid username or password.')
-    form = AuthenticationForm()
-    return render(request=request, template_name='login.html', context={'login_form': form})
+class CategoryView(ListAPIView):
+    queryset = Category.objects.filter()
+    serializer_class = CategorySerializer
+
+
+class ProductsView(ListAPIView):
+    queryset = ProductInfo.objects.filter()
+    serializer_class = ProductInfoSerializer
