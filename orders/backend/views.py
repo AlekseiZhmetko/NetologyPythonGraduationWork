@@ -1,20 +1,25 @@
-from .models import Shop, Category, Product, ProductInfo, ProductParameter, Parameter, Contact, Order, OrderItem
+from .models import Shop, Category, Product, ProductInfo, ProductParameter, Parameter, Contact,\
+    Order, OrderItem, ConfirmEmailToken
+
 
 from rest_framework.views import APIView
 from rest_framework.generics import ListAPIView
+from rest_framework.authtoken.models import Token
+from django.contrib.auth.models import update_last_login
 import yaml
 from django.http import JsonResponse
-from django.contrib import messages
+# from django.contrib import messages
 from django.contrib.auth import login, authenticate
-from django.contrib.auth.forms import AuthenticationForm
-from django.shortcuts import render, redirect
-
-from .forms import UserRegistrationForm
+# from django.contrib.auth.forms import AuthenticationForm
+# from django.shortcuts import render, redirect
+#
+# from .forms import UserRegistrationForm
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from .serializers import ShopSerializer, CategorySerializer, ProductInfoSerializer, UserSerializer
 
 User = get_user_model()
+
 
 class ImportDataFromYAML(APIView):
 
@@ -70,7 +75,7 @@ class AccountRegistration(APIView):
     #     return render(request, 'register.html', {'user_form': user_form})
 
     def post(self, request, *args, **kwargs):
-        if {'first_name', 'last_name', 'email', 'password', 'company', 'position'}.issubset(request.data):
+        if {'email', 'password'}.issubset(request.data):
             errors = {}
             try:
                 validate_password(request.data['password'])
@@ -96,42 +101,64 @@ class AccountRegistration(APIView):
 
                     return JsonResponse({'Status': False, 'Errors': user_serializer.errors})
         x = type(request.data)
-        return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы', 'a': str(x)})
+        return JsonResponse({'Status': False, 'Errors': '', 'a': str(x)})
 
-def index(request):
-    return render(request, 'index.html', {})
 
+class ConfirmAccount(APIView):
+    def post(self, request, *args, **kwargs):
+
+        if {'email', 'token'}.issubset(request.data):
+
+            token = ConfirmEmailToken.objects.filter(user__email=request.data['email'],
+                                                     key=request.data['token']).first()
+            if token:
+                token.user.is_active = True
+                token.user.save()
+                token.delete()
+                return JsonResponse({'Status': True})
+            else:
+                return JsonResponse({'Status': False, 'Errors': 'Wrong token or email'})
+
+        return JsonResponse({'Status': False, 'Errors': 'Required arguments are not specified'})
+
+
+class LoginAccount(APIView):
+    def post(self, request, *args, **kwargs):
+
+        if {'email', 'password'}.issubset(request.data):
+            user = authenticate(request, email=request.data['email'], password=request.data['password'])
+
+            if user is not None:
+                if user.is_active:
+                    token, _ = Token.objects.get_or_create(user=user)
+                    # Обновляем поле last_login в БД, т.к. при работе через токен оно не обновляется автоматически
+                    update_last_login(None, user)
+                return JsonResponse({'Status': True, 'Token': token.key})
+
+            return JsonResponse({'Status': False, 'Errors': 'Authentication is not successful'})
+
+        return JsonResponse({'Status': False, 'Errors': 'Required arguments are not specified'})
+
+
+# class LoginAccount(APIView):
 #
-# def register(request):
-#     if request.method == 'POST':
-#         user_form = UserRegistrationForm(request.POST)
-#         if user_form.is_valid():
-#             new_user = user_form.save(commit=False)
-#             new_user.set_password(user_form.cleaned_data['password'])
-#             new_user.save()
-#             return render(request, 'register_done.html', {'new_user': new_user})
-#     else:
-#         user_form = UserRegistrationForm()
-#     return render(request, 'register.html', {'user_form': user_form})
-#
-#
-# def login_request(request):
-#     if request.method == 'POST':
-#         form = AuthenticationForm(request, data=request.POST)
-#         if form.is_valid():
-#             username = form.cleaned_data.get('username')
-#             password = form.cleaned_data.get('password')
-#             user = authenticate(username=username, password=password)
-#             if user is not None:
-#                 login(request, user)
-#                 messages.info(request, f'You are now logged in as {username}.')
-#                 return redirect('index')
+#     def post(self, request, *args, **kwargs):
+#         if request.method == 'POST':
+#             form = AuthenticationForm(request, data=request.POST)
+#             if form.is_valid():
+#                 email = form.cleaned_data.get('email')
+#                 password = form.cleaned_data.get('password')
+#                 user = authenticate(email=email, password=password)
+#                 if user is not None:
+#                     login(request, user)
+#                     messages.info(request, f'You are now logged in as {email}.')
+#                 else:
+#                     messages.error(request, "Invalid email or password.")
 #             else:
-#                 messages.error(request, "Invalid username or password.")
-#         else:
-#             messages.error(request, 'Invalid username or password.')
-#     form = AuthenticationForm()
-#     return render(request=request, template_name='login.html', context={'login_form': form})
+#                 messages.error(request, 'Invalid email or password.')
+#         form = AuthenticationForm()
+#         return render(request=request, template_name='login.html', context={'login_form': form})
+
 
 class ShopView(ListAPIView):
     queryset = Shop.objects.all()

@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.utils.translation import gettext_lazy as _
+from django_rest_passwordreset.tokens import get_token_generator
 
 
 USER_TYPE_CHOICES = (
@@ -39,7 +40,6 @@ class UserManager(BaseUserManager):
         return self._create_user(email, password, **extra_fields)
 
     def create_superuser(self, email, password, **extra_fields):
-        """Create and save a SuperUser with the given email and password."""
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
 
@@ -53,7 +53,7 @@ class UserManager(BaseUserManager):
 
 class User(AbstractUser):
     # objects = UserManager()
-    REQUIRED_FIELDS = ['username']
+    REQUIRED_FIELDS = []
     USERNAME_FIELD = 'email'
     email = models.EmailField(_('Email'),
         unique=True,
@@ -70,13 +70,13 @@ class User(AbstractUser):
     username = models.CharField(
         _('Username'),
         max_length=150,
-        unique=True,
+        blank=True,
+        # unique=True,
         help_text=_('Required. 150 characters or fewer. Letters, digits and @/./+/-/_ only.'),
         # validators=[username_validator],
-        error_messages={
-            'unique': _("A user with that username already exists."),
-        },
-    )
+        # error_messages={
+        #     'unique': _("A user with that username already exists."),
+        )
     is_active = models.BooleanField(
         _('active'),
         default=True,
@@ -224,3 +224,41 @@ class OrderItem(models.Model):
     class Meta:
         verbose_name = 'Ordered item'
         verbose_name_plural = "Ordered items list"
+
+
+class ConfirmEmailToken(models.Model):
+    class Meta:
+        verbose_name = 'Токен подтверждения Email'
+        verbose_name_plural = 'Токены подтверждения Email'
+
+    @staticmethod
+    def generate_key():
+        """ generates a pseudo random code using os.urandom and binascii.hexlify """
+        return get_token_generator().generate_token()
+
+    user = models.ForeignKey(
+        User,
+        related_name='confirm_email_tokens',
+        on_delete=models.CASCADE,
+        verbose_name=_("The User which is associated to this password reset token")
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name=_("When was this token generated")
+    )
+
+    key = models.CharField(
+        _("Key"),
+        max_length=64,
+        db_index=True,
+        unique=True
+    )
+
+    def save(self, *args, **kwargs):
+        if not self.key:
+            self.key = self.generate_key()
+        return super(ConfirmEmailToken, self).save(*args, **kwargs)
+
+    def __str__(self):
+        return "Password reset token for user {user}".format(user=self.user)
