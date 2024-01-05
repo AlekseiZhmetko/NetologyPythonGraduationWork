@@ -1,11 +1,15 @@
-from django.urls import path
+from django.urls import path, include
 from . import views
+# from django_rest_passwordreset.views import reset_password_request_token, reset_password_confirm
+
 urlpatterns = [
 
     path('partner/import_yaml/', views.ImportDataFromYAML.as_view(), name='import_yaml'),
-    path('user/register/', views.AccountRegistration.as_view(), name='register'),
-    path('user/login/', views.LoginAccount.as_view(), name='login'),
-    # path('user/login/', views.login_request, name='login'),
+    path('users/register/', views.AccountRegistration.as_view(), name='register'),
+    path('users/login/', views.LoginAccount.as_view(), name='login'),
+    path('users/current/', views.CurrentUserView.as_view(), name='current_user'),
+    path('users/password_reset/', include('django_rest_passwordreset.urls', namespace='password_reset')),
+    # path('users/password_reset/confirm', reset_password_confirm, name='password-reset-confirm'),
 
     path('categories/', views.CategoryView.as_view(), name='categories'),
     path('shops/', views.ShopView.as_view(), name='shops'),

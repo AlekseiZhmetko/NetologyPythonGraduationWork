@@ -1,10 +1,14 @@
+
 from .models import Shop, Category, Product, ProductInfo, ProductParameter, Parameter, Contact,\
-    Order, OrderItem, ConfirmEmailToken
+    Order, OrderItem \
+    # ConfirmEmailToken
 
 
 from rest_framework.views import APIView
 from rest_framework.generics import ListAPIView
+from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
+from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth.models import update_last_login
 import yaml
 from django.http import JsonResponse
@@ -104,22 +108,22 @@ class AccountRegistration(APIView):
         return JsonResponse({'Status': False, 'Errors': '', 'a': str(x)})
 
 
-class ConfirmAccount(APIView):
-    def post(self, request, *args, **kwargs):
-
-        if {'email', 'token'}.issubset(request.data):
-
-            token = ConfirmEmailToken.objects.filter(user__email=request.data['email'],
-                                                     key=request.data['token']).first()
-            if token:
-                token.user.is_active = True
-                token.user.save()
-                token.delete()
-                return JsonResponse({'Status': True})
-            else:
-                return JsonResponse({'Status': False, 'Errors': 'Wrong token or email'})
-
-        return JsonResponse({'Status': False, 'Errors': 'Required arguments are not specified'})
+# class ConfirmAccount(APIView):
+#     def post(self, request, *args, **kwargs):
+#
+#         if {'email', 'token'}.issubset(request.data):
+#
+#             token = ConfirmEmailToken.objects.filter(user__email=request.data['email'],
+#                                                      key=request.data['token']).first()
+#             if token:
+#                 token.user.is_active = True
+#                 token.user.save()
+#                 token.delete()
+#                 return JsonResponse({'Status': True})
+#             else:
+#                 return JsonResponse({'Status': False, 'Errors': 'Wrong token or email'})
+#
+#         return JsonResponse({'Status': False, 'Errors': 'Required arguments are not specified'})
 
 
 class LoginAccount(APIView):
@@ -173,3 +177,11 @@ class CategoryView(ListAPIView):
 class ProductsView(ListAPIView):
     queryset = ProductInfo.objects.filter()
     serializer_class = ProductInfoSerializer
+
+
+# Просмотр информации о текущем пользователе
+class CurrentUserView(APIView):
+    permission_classes = (IsAuthenticated,)
+    def get(self, request):
+        serializer = UserSerializer(request.user)
+        return Response(serializer.data)

@@ -38,6 +38,7 @@ INSTALLED_APPS = [
 
     'rest_framework',
     'rest_framework.authtoken',
+    'django_rest_passwordreset',
 
     'backend',
     'crispy_forms',
@@ -59,6 +60,7 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = 'orders.urls'
+
 
 TEMPLATES = [
     {
@@ -112,15 +114,29 @@ AUTH_PASSWORD_VALIDATORS = [
 
 AUTH_USER_MODEL = 'backend.User'
 
-# REST_FRAMEWORK = {
-#     'DEFAULT_AUTHENTICATION_CLASSES': (
-#         'rest_framework.authentication.TokenAuthentication',
-#         'rest_framework.authentication.SessionAuthentication',
-#     ),
-#     'DEFAULT_PERMISSION_CLASSES': (
-#         'rest_framework.permissions.IsAuthenticated',
-#     )
-# }
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework.authentication.TokenAuthentication',
+    ),
+    # 'DEFAULT_PERMISSION_CLASSES': (
+    #     'rest_framework.permissions.IsAuthenticated',
+    # )
+}
+
+
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+
+
+EMAIL_HOST = 'smtp.yandex.ru'
+EMAIL_PORT = 465
+# EMAIL_USE_TLS = True
+EMAIL_USE_SSL = True
+EMAIL_HOST_USER = 'netologyzhmetko@yandex.ru'
+EMAIL_HOST_PASSWORD = 'mlkkrtpatgbviajy'
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+SERVER_EMAIL = EMAIL_HOST_USER
+EMAIL_ADMIN = EMAIL_HOST_USER
+
 
 # Internationalization
 # https://docs.djangoproject.com/en/4.2/topics/i18n/
