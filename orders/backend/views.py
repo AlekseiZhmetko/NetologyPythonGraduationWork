@@ -1,7 +1,6 @@
 
 from .models import Shop, Category, Product, ProductInfo, ProductParameter, Parameter, Contact,\
-    Order, OrderItem \
-    # ConfirmEmailToken
+    Order, OrderItem, ConfirmEmailToken
 
 
 from rest_framework.views import APIView
@@ -108,22 +107,22 @@ class AccountRegistration(APIView):
         return JsonResponse({'Status': False, 'Errors': '', 'a': str(x)})
 
 
-# class ConfirmAccount(APIView):
-#     def post(self, request, *args, **kwargs):
-#
-#         if {'email', 'token'}.issubset(request.data):
-#
-#             token = ConfirmEmailToken.objects.filter(user__email=request.data['email'],
-#                                                      key=request.data['token']).first()
-#             if token:
-#                 token.user.is_active = True
-#                 token.user.save()
-#                 token.delete()
-#                 return JsonResponse({'Status': True})
-#             else:
-#                 return JsonResponse({'Status': False, 'Errors': 'Wrong token or email'})
-#
-#         return JsonResponse({'Status': False, 'Errors': 'Required arguments are not specified'})
+class ConfirmAccount(APIView):
+    def post(self, request, *args, **kwargs):
+
+        if {'email', 'token'}.issubset(request.data):
+
+            token = ConfirmEmailToken.objects.filter(user__email=request.data['email'],
+                                                     key=request.data['token']).first()
+            if token:
+                token.user.is_active = True
+                token.user.save()
+                token.delete()
+                return JsonResponse({'Status': True})
+            else:
+                return JsonResponse({'Status': False, 'Errors': 'Wrong token or email'})
+
+        return JsonResponse({'Status': False, 'Errors': 'Required arguments are not specified'})
 
 
 class LoginAccount(APIView):
@@ -143,6 +142,41 @@ class LoginAccount(APIView):
 
         return JsonResponse({'Status': False, 'Errors': 'Required arguments are not specified'})
 
+
+class AccountDetails(APIView):
+
+
+    def get(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
+
+        serializer = UserSerializer(request.user)
+        return Response(serializer.data)
+
+
+    def post(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
+
+        if 'password' in request.data:
+            errors = {}
+            try:
+                validate_password(request.data['password'])
+            except Exception as password_error:
+                error_array = []
+                # noinspection PyTypeChecker
+                for item in password_error:
+                    error_array.append(item)
+                return JsonResponse({'Status': False, 'Errors': {'password': error_array}})
+            else:
+                request.user.set_password(request.data['password'])
+
+        user_serializer = UserSerializer(request.user, data=request.data, partial=True)
+        if user_serializer.is_valid():
+            user_serializer.save()
+            return JsonResponse({'Status': True})
+        else:
+            return JsonResponse({'Status': False, 'Errors': user_serializer.errors})
 
 # class LoginAccount(APIView):
 #
