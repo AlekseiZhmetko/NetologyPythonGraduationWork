@@ -36,10 +36,29 @@ class CategorySerializer(serializers.ModelSerializer):
         read_only_fields = ('id',)
 
 
+class ProductSerializer(serializers.ModelSerializer):
+    category = serializers.StringRelatedField()
+
+    class Meta:
+        model = Product
+        fields = ('name', 'category',)
+
+
+class ProductParameterSerializer(serializers.ModelSerializer):
+    parameter = serializers.StringRelatedField()
+
+    class Meta:
+        model = ProductParameter
+        fields = ('parameter', 'value',)
+
+
 class ProductInfoSerializer(serializers.ModelSerializer):
+    product = ProductSerializer(read_only=True)
+    product_parameters = ProductParameterSerializer(read_only=True, many=True)
+
     class Meta:
         model = ProductInfo
-        fields = ('id', 'product', 'model', 'shop', 'quantity', 'price')
+        fields = ('id', 'product', 'model', 'shop', 'quantity', 'price', 'product_parameters', 'shop_id')
         read_only_fields = ('id',)
 
 

@@ -13,6 +13,7 @@ import yaml
 from django.http import JsonResponse
 # from django.contrib import messages
 from django.contrib.auth import login, authenticate
+from django.db.models import Q
 # from django.contrib.auth.forms import AuthenticationForm
 # from django.shortcuts import render, redirect
 #
@@ -144,8 +145,6 @@ class LoginAccount(APIView):
 
 
 class AccountDetails(APIView):
-
-
     def get(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
             return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
@@ -177,6 +176,7 @@ class AccountDetails(APIView):
             return JsonResponse({'Status': True})
         else:
             return JsonResponse({'Status': False, 'Errors': user_serializer.errors})
+
 
 # class LoginAccount(APIView):
 #
@@ -213,9 +213,38 @@ class ProductsView(ListAPIView):
     serializer_class = ProductInfoSerializer
 
 
-# Просмотр информации о текущем пользователе
+class ProductInfoView(ListAPIView):
+    def get(self, request, *args, **kwargs):
+
+        query = Q(shop__state=True)
+        shop_id = request.query_params.get('shop_id')
+        category_id = request.query_params.get('category_id')
+
+        if shop_id:
+            query = query & Q(shop_id=shop_id)
+            # query = Q(shop_id=shop_id)
+
+        if category_id:
+            query = query & Q(product__category_id=category_id)
+
+        queryset = ProductInfo.objects.filter(
+            query).select_related(
+            'shop', 'product__category').prefetch_related(
+            'product_parameters__parameter').distinct()
+
+
+        serializer = ProductInfoSerializer(queryset, many=True)
+
+        return Response(serializer.data)
+
+
 class CurrentUserView(APIView):
+    """
+    Информация о текущем пользователе
+    """
     permission_classes = (IsAuthenticated,)
     def get(self, request):
         serializer = UserSerializer(request.user)
         return Response(serializer.data)
+
+

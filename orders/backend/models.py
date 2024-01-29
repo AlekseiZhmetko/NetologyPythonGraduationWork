@@ -99,9 +99,10 @@ class User(AbstractUser):
 class Shop(models.Model):
     name = models.CharField(max_length=50, verbose_name='Name')
     url = models.URLField(null=True, blank=True, verbose_name='Url')
-    user = models.OneToOneField(User, verbose_name='Пользователь',
+    user = models.OneToOneField(User, verbose_name='User',
                                 blank=True, null=True,
                                 on_delete=models.CASCADE)
+    state = models.BooleanField(verbose_name='Getting orders status', default=True)
     # filename = models.CharField(max_length=50)
 
     class Meta:
