@@ -2,3 +2,5 @@ Django~=4.2.7
 djangorestframework~=3.14.0
 
 PyYAML~=6.0.1
+python-dotenv~=1.0.0
+ujson~=5.9.0
