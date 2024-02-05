@@ -3,12 +3,10 @@ from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.utils.translation import gettext_lazy as _
 from django_rest_passwordreset.tokens import get_token_generator
 
-
 USER_TYPE_CHOICES = (
     ('shop', 'Shop'),
     ('buyer', 'Buyer'),
 )
-
 
 ORDER_STATUSES = (
     ('basker', 'Basket'),
@@ -22,7 +20,6 @@ ORDER_STATUSES = (
 
 
 class UserManager(BaseUserManager):
-
     use_in_migrations = True
 
     def _create_user(self, email, password, **extra_fields):
@@ -52,15 +49,12 @@ class UserManager(BaseUserManager):
 
 
 class User(AbstractUser):
-    # objects = UserManager()
     REQUIRED_FIELDS = []
     USERNAME_FIELD = 'email'
-    email = models.EmailField(_('Email'),
-        unique=True,
-        error_messages={
-              'unique': _("This email address is already exists."),
-            },
-    )
+    email = models.EmailField(_('Email'), unique=True,
+                              error_messages={'unique': _("This email address is already exists."),
+                                              },
+                              )
     company = models.CharField(verbose_name='Company', max_length=40, blank=True)
     position = models.CharField(verbose_name='Position', max_length=40, blank=True)
     first_name = models.CharField(verbose_name='First name', max_length=40, blank=True)
@@ -76,7 +70,7 @@ class User(AbstractUser):
         # validators=[username_validator],
         # error_messages={
         #     'unique': _("A user with that username already exists."),
-        )
+    )
     is_active = models.BooleanField(
         _('active'),
         default=True,
@@ -103,6 +97,7 @@ class Shop(models.Model):
                                 blank=True, null=True,
                                 on_delete=models.CASCADE)
     state = models.BooleanField(verbose_name='Getting orders status', default=True)
+
     # filename = models.CharField(max_length=50)
 
     class Meta:
@@ -185,7 +180,6 @@ class Contact(models.Model):
     apartment = models.CharField(max_length=15, verbose_name='Apartment', blank=True)
     phone = models.CharField(max_length=20, verbose_name='Phone', blank=True)
 
-
     class Meta:
         verbose_name = 'User contacts'
         verbose_name_plural = 'User contacts list'
@@ -203,6 +197,10 @@ class Order(models.Model):
     contact = models.ForeignKey(Contact, verbose_name='Contact',
                                 blank=True, null=True,
                                 on_delete=models.CASCADE)
+
+    def total_sum(self):
+        total_sum = sum(item.product_info.price * item.quantity for item in self.ordered_items.all())
+        return total_sum
 
     class Meta:
         verbose_name = 'Order'
@@ -263,4 +261,3 @@ class ConfirmEmailToken(models.Model):
 
     def __str__(self):
         return "Password reset token for user {user}".format(user=self.user)
-

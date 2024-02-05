@@ -9,6 +9,7 @@ from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
 from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth.models import update_last_login
+from .signals import new_order, new_user_registered
 import yaml
 from django.http import JsonResponse
 # from django.contrib import messages
@@ -68,19 +69,6 @@ class ImportDataFromYAML(APIView):
 
 class AccountRegistration(APIView):
 
-    # def get(self, request, *args, **kwargs):
-    #     if request.method == 'POST':
-    #
-    #         user_form = UserRegistrationForm(request.POST)
-    #         if user_form.is_valid():
-    #             new_user = user_form.save(commit=False)
-    #             new_user.set_password(user_form.cleaned_data['password'])
-    #             new_user.save()
-    #             return render(request, 'register_done.html', {'new_user': new_user})
-    #     else:
-    #         user_form = UserRegistrationForm()
-    #     return render(request, 'register.html', {'user_form': user_form})
-
     def post(self, request, *args, **kwargs):
         if {'email', 'password'}.issubset(request.data):
             errors = {}
@@ -93,15 +81,12 @@ class AccountRegistration(APIView):
                     error_array.append(item)
                 return JsonResponse({'Status': False, 'Errors': {'password': error_array}})
             else:
-                # проверяем данные для уникальности имени пользователя
                 request.data.update({})
                 user_serializer = UserSerializer(data=request.data)
                 if user_serializer.is_valid():
-                    # сохраняем пользователя
                     user = user_serializer.save()
                     user.set_password(request.data['password'])
                     user.save()
-                    # new_user_registered.send(sender=self.__class__, user_id=user.id)
 
                     return JsonResponse({'Status': True})
                 else:
@@ -209,6 +194,7 @@ class ShopView(ListAPIView):
         user = User.objects.filter(id=request.data.get('user')).update(type='shop')
         return super().create(request, *args, **kwargs)
 
+
 class CategoryView(ListAPIView):
     queryset = Category.objects.filter()
     serializer_class = CategorySerializer
@@ -288,7 +274,6 @@ class BasketView(APIView):
                             return JsonResponse({'Status': False, 'Errors': str(error)})
                     else:
                         if not new_order_created:
-                            # If order_id is not specified and a new order hasn't been created yet, create a new order
                             basket = Order.objects.create(user_id=request.user.id, status='basket')
                             new_order_created = True
 
@@ -301,10 +286,10 @@ class BasketView(APIView):
                     else:
                         return JsonResponse({'Status': False, 'Errors': serializer.errors})
 
-                return JsonResponse({'Status': True, 'Создано объектов': objects_created})
+                return JsonResponse({'Status': True, 'Objects created:': objects_created})
             except ValueError:
                 return JsonResponse({'Status': False, 'Errors': 'Invalid JSON format'})
-        return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'})
+        return JsonResponse({'Status': False, 'Errors': 'Required arguments are not specified'})
 
     def delete(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
@@ -328,7 +313,7 @@ class BasketView(APIView):
                 except IntegrityError as error:
                     return JsonResponse({'Status': False, 'Errors': str(error)})
                 else:
-                    return JsonResponse({'Status': True, 'Удалено объектов': deleted_count})
+                    return JsonResponse({'Status': True, 'Objects deleted:': deleted_count})
             else:
                 return JsonResponse({'Status': False, 'Errors': 'No valid order_item_id provided'})
         else:
@@ -353,7 +338,8 @@ class BasketView(APIView):
                                                                order__user=request.user)
                         except OrderItem.DoesNotExist:
                             return JsonResponse({'Status': False,
-                                                 'Errors': 'OrderItem not found for the user or order_id and order_item_id do not match'})
+                                                 'Errors': 'OrderItem not found for the user'
+                                                           'or order_id and order_item_id do not match'})
 
                         serializer = OrderItemSerializer(instance=order_item, data=order_item_data)
                         if serializer.is_valid():
@@ -363,12 +349,13 @@ class BasketView(APIView):
                             return JsonResponse({'Status': False, 'Errors': serializer.errors})
                     else:
                         return JsonResponse({'Status': False,
-                                             'Errors': 'Both order_item_id and order_id must be specified for an item in PUT request'})
+                                             'Errors': 'Both order_item_id and order_id must be specified'
+                                                       ' for an item in PUT request'})
 
-                return JsonResponse({'Status': True, 'Обновлено объектов': objects_updated})
+                return JsonResponse({'Status': True, 'Objects updated: ': objects_updated})
             except ValueError:
                 return JsonResponse({'Status': False, 'Errors': 'Invalid JSON format'})
-        return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'})
+        return JsonResponse({'Status': False, 'Errors': 'Required arguments are not specified'})
 
 
 class OrderView(APIView):
@@ -390,18 +377,18 @@ class OrderView(APIView):
             return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
 
         if {'id', 'contact'}.issubset(request.data):
-            if request.data['id'].isdigit():
+            if request.data['id']:
                 try:
                     is_updated = Order.objects.filter(
                         user_id=request.user.id, id=request.data['id']).update(
-                        contact_id=request.data['contact'],
-                        status='new')
+                        status='new', contact_id=request.data['contact'])
                 except IntegrityError as error:
                     print(error)
-                    return JsonResponse({'Status': False, 'Errors': 'Неправильно указаны аргументы'})
+                    return JsonResponse({'Status': False, 'Errors': 'Wrong arguments'})
                 else:
                     if is_updated:
-                        new_order.send(sender=self.__class__, user_id=request.user.id)
+                        new_order.send(sender=self.__class__, user_id=request.user.id, order_id=request.data['id'],
+                                       order_status='new')
                         return JsonResponse({'Status': True})
 
-        return JsonResponse({'Status': False, 'Errors': 'Не указаны все необходимые аргументы'})
+        return JsonResponse({'Status': False, 'Errors': 'Required arguments are not specified'})
