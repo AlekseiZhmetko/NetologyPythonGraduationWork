@@ -7,7 +7,7 @@ from django_rest_passwordreset.signals import reset_password_token_created
 import os
 from django.contrib.auth.models import User
 from .serializers import OrderSerializer
-from .models import ConfirmEmailToken, User, Order
+from .models import ConfirmEmailToken, User, Order, Shop
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -63,7 +63,7 @@ def new_user_registered_signal(user_id, **kwargs):
 @receiver(new_order)
 def new_order_signal(user_id, order_id, order_status, **kwargs):
     """
-    Signal with new order's data
+    Signal with new order's data (sending to buyer)
     """
     user = User.objects.get(id=user_id)
     order = Order.objects.get(id=order_id)
@@ -74,7 +74,7 @@ def new_order_signal(user_id, order_id, order_status, **kwargs):
     pretty_order_data = json.dumps(order_data, indent=4, ensure_ascii=False)
 
     subject = f"Order #{order_id} Status Update"
-    message = f"{user.username},\n\nYour order #{order_id} has been updated.\n Details:\n\n{pretty_order_data}" \
+    message = f"{user.username},\n\nOrder #{order_id} has been updated.\n Details:\n\n{pretty_order_data}" \
               f"\n\nCurrent Status: {order_status}\n\n"
 
     msg = EmailMultiAlternatives(
@@ -83,4 +83,6 @@ def new_order_signal(user_id, order_id, order_status, **kwargs):
         from_email=settings.EMAIL_HOST_USER,
         to=[user.email]
     )
+
     msg.send()
+

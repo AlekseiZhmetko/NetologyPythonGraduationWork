@@ -9,7 +9,7 @@ USER_TYPE_CHOICES = (
 )
 
 ORDER_STATUSES = (
-    ('basker', 'Basket'),
+    ('basket', 'Basket'),
     ('new', 'New'),
     ('confirmed', 'Confirmed'),
     ('assembled', 'Ready for shipping'),

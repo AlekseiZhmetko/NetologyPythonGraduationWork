@@ -426,3 +426,24 @@ class PartnerState(APIView):
                 return JsonResponse({'Status': False, 'Errors': str(error)})
 
         return JsonResponse({'Status': False, 'Errors': 'Required arguments are not specified'})
+
+
+class PartnerOrders(APIView):
+    def get(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
+
+        if request.user.type != 'shop':
+            return JsonResponse({'Status': False, 'Error': 'Shops only'}, status=403)
+        # print(request.user.id)
+        order = Order.objects.filter(
+            ordered_items__product_info__shop__user_id=request.user.id).exclude(status='basket').prefetch_related(
+            'ordered_items__product_info__product__category',
+            'ordered_items__product_info__product_parameters__parameter').select_related('contact').annotate(
+            total_sum=Sum(F('ordered_items__quantity') * F('ordered_items__product_info__price'))).distinct()
+
+        # print(order.query)
+
+        serializer = OrderSerializer(order, many=True)
+        # print(serializer.data)
+        return Response(serializer.data)

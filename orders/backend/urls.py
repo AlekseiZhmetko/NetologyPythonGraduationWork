@@ -5,7 +5,8 @@ from . import views
 urlpatterns = [
 
     path('partner/update_data/', views.PartnerImportDataFromYAML.as_view(), name='import_data'),
-    path('partner/state/', views.PartnerState.as_view()),
+    path('partner/state/', views.PartnerState.as_view(), name='partner_state'),
+    path('partner/orders/', views.PartnerOrders.as_view(), name='partner_orders'),
 
     path('users/register/', views.AccountRegistration.as_view(), name='register'),
     path('users/login/', views.LoginAccount.as_view(), name='login'),
