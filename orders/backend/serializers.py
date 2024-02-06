@@ -25,7 +25,7 @@ class UserSerializer(serializers.ModelSerializer):
 class ShopSerializer(serializers.ModelSerializer):
     class Meta:
         model = Shop
-        fields = ('id', 'name', 'user',)
+        fields = ('id', 'name', 'user_id', 'state')
         read_only_fields = ('id',)
 
 

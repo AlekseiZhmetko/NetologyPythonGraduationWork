@@ -1,7 +1,5 @@
-
-from .models import Shop, Category, Product, ProductInfo, ProductParameter, Parameter, Contact,\
+from .models import Shop, Category, Product, ProductInfo, ProductParameter, Parameter, Contact, \
     Order, OrderItem, ConfirmEmailToken
-
 
 from rest_framework.views import APIView
 from rest_framework.generics import ListAPIView
@@ -10,59 +8,67 @@ from rest_framework.authtoken.models import Token
 from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth.models import update_last_login
 from .signals import new_order, new_user_registered
-import yaml
+from yaml import load as load_yaml, Loader
+import requests
+from django.core.exceptions import ValidationError
+from django.core.validators import URLValidator
 from django.http import JsonResponse
-# from django.contrib import messages
 from django.contrib.auth import login, authenticate
 from django.db.models import Q, Sum, F
-# from django.contrib.auth.forms import AuthenticationForm
-# from django.shortcuts import render, redirect
-# from .forms import UserRegistrationForm
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.db import IntegrityError
-from ujson import loads as load_json
-import json
-from .serializers import ShopSerializer, CategorySerializer, ProductInfoSerializer, UserSerializer,\
+from distutils.util import strtobool
+from .serializers import ShopSerializer, CategorySerializer, ProductInfoSerializer, UserSerializer, \
     OrderItemSerializer, OrderSerializer, OrderItemCreateSerializer
 
 User = get_user_model()
 
 
-class ImportDataFromYAML(APIView):
+class PartnerImportDataFromYAML(APIView):
+    # check that data in url is raw (if url from GitHub)!
+    def post(self, request, *args, **kwargs):
 
-    def get(self, request, *args, **kwargs):
-        # указать не абсолютный путь файла
-        yaml_file_path = r'C:\Users\Алексей\Desktop\PythonFinalDiplom\NetologyPythonGraduationWork\data\shop1.yaml'
+        if not request.user.is_authenticated:
+            return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
+        if request.user.type != 'shop':
+            return JsonResponse({'Status': False, 'Error': 'Shops only'}, status=403)
+        url = request.data.get('url')
 
-        with open(yaml_file_path, 'r', encoding='utf-8') as file:
-            data = yaml.safe_load(file)
+        if url:
+            validate_url = URLValidator()
+            try:
+                validate_url(url)
+            except ValidationError as e:
+                return JsonResponse({'Status': False, 'Error': str(e)})
+            else:
+                stream = requests.get(url).content
+                data = load_yaml(stream, Loader=Loader)
+                # print(data)
 
-            shop, _ = Shop.objects.get_or_create(name=data['shop'])
-            # print(shop)
-            # print(f'New shop created with ID: {shop.id}')
+                shop, _ = Shop.objects.get_or_create(name=data['shop'], user_id=request.user.id)
 
-            for category in data['categories']:
-                category_object, _ = Category.objects.get_or_create(id=category['id'], name=category['name'])
-                print(category_object)
-                category_object.shops.add(shop.id)
-                category_object.save()
-            ProductInfo.objects.filter(shop_id=shop.id).delete()
-            for item in data['goods']:
-                product, _ = Product.objects.get_or_create(name=item['name'], category_id=item['category'])
+                for category in data['categories']:
+                    category_object, _ = Category.objects.get_or_create(id=category['id'], name=category['name'])
+                    # print(category_object)
+                    category_object.shops.add(shop.id)
+                    category_object.save()
+                ProductInfo.objects.filter(shop_id=shop.id).delete()
+                for item in data['goods']:
+                    product, _ = Product.objects.get_or_create(name=item['name'], category_id=item['category'])
 
-                product_info = ProductInfo.objects.create(product_id=product.id,
-                                                          external_id=item['id'],
-                                                          model=item['model'],
-                                                          price=item['price'],
-                                                          price_rrc=item['price_rrc'],
-                                                          quantity=item['quantity'],
-                                                          shop_id=shop.id)
-                for name, value in item['parameters'].items():
-                    parameter_object, _ = Parameter.objects.get_or_create(name=name)
-                    ProductParameter.objects.create(product_info_id=product_info.id,
-                                                    parameter_id=parameter_object.id,
-                                                    value=value)
+                    product_info = ProductInfo.objects.create(product_id=product.id,
+                                                              external_id=item['id'],
+                                                              model=item['model'],
+                                                              price=item['price'],
+                                                              price_rrc=item['price_rrc'],
+                                                              quantity=item['quantity'],
+                                                              shop_id=shop.id)
+                    for name, value in item['parameters'].items():
+                        parameter_object, _ = Parameter.objects.get_or_create(name=name)
+                        ProductParameter.objects.create(product_info_id=product_info.id,
+                                                        parameter_id=parameter_object.id,
+                                                        value=value)
 
             return JsonResponse({'Status': True})
 
@@ -139,7 +145,6 @@ class AccountDetails(APIView):
 
         serializer = UserSerializer(request.user)
         return Response(serializer.data)
-
 
     def post(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
@@ -224,7 +229,6 @@ class ProductInfoView(ListAPIView):
             'shop', 'product__category').prefetch_related(
             'product_parameters__parameter').distinct()
 
-
         serializer = ProductInfoSerializer(queryset, many=True)
 
         return Response(serializer.data)
@@ -232,6 +236,7 @@ class ProductInfoView(ListAPIView):
 
 class CurrentUserView(APIView):
     permission_classes = (IsAuthenticated,)
+
     def get(self, request):
         serializer = UserSerializer(request.user)
         return Response(serializer.data)
@@ -390,5 +395,34 @@ class OrderView(APIView):
                         new_order.send(sender=self.__class__, user_id=request.user.id, order_id=request.data['id'],
                                        order_status='new')
                         return JsonResponse({'Status': True})
+
+        return JsonResponse({'Status': False, 'Errors': 'Required arguments are not specified'})
+
+
+class PartnerState(APIView):
+    def get(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
+
+        if request.user.type != 'shop':
+            return JsonResponse({'Status': False, 'Error': 'Shops only'}, status=403)
+
+        shop = request.user.shop
+        serializer = ShopSerializer(shop)
+        return Response(serializer.data)
+
+    def post(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
+
+        if request.user.type != 'shop':
+            return JsonResponse({'Status': False, 'Error': 'Shops only'}, status=403)
+        state = request.data.get('state')
+        if state:
+            try:
+                Shop.objects.filter(user_id=request.user.id).update(state=strtobool(state))
+                return JsonResponse({'Status': True})
+            except ValueError as error:
+                return JsonResponse({'Status': False, 'Errors': str(error)})
 
         return JsonResponse({'Status': False, 'Errors': 'Required arguments are not specified'})

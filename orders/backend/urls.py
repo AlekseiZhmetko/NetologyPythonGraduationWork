@@ -4,7 +4,9 @@ from . import views
 
 urlpatterns = [
 
-    path('partner/import_yaml/', views.ImportDataFromYAML.as_view(), name='import_yaml'),
+    path('partner/update_data/', views.PartnerImportDataFromYAML.as_view(), name='import_data'),
+    path('partner/state/', views.PartnerState.as_view()),
+
     path('users/register/', views.AccountRegistration.as_view(), name='register'),
     path('users/login/', views.LoginAccount.as_view(), name='login'),
     path('users/details/', views.AccountDetails.as_view(), name='account_details'),
