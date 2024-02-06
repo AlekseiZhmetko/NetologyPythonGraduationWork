@@ -63,26 +63,42 @@ def new_user_registered_signal(user_id, **kwargs):
 @receiver(new_order)
 def new_order_signal(user_id, order_id, order_status, **kwargs):
     """
-    Signal with new order's data (sending to buyer)
+    Signal with new order's data (sending to buyer and Shop admin)
     """
     user = User.objects.get(id=user_id)
     order = Order.objects.get(id=order_id)
 
     order_serializer = OrderSerializer(order)
-
     order_data = order_serializer.data
     pretty_order_data = json.dumps(order_data, indent=4, ensure_ascii=False)
 
-    subject = f"Order #{order_id} Status Update"
-    message = f"{user.username},\n\nOrder #{order_id} has been updated.\n Details:\n\n{pretty_order_data}" \
-              f"\n\nCurrent Status: {order_status}\n\n"
+    subject_buyer = f"Order #{order_id} Status Update"
+    message_buyer = f"Order #{order_id} has been updated.\n Details:\n\n{pretty_order_data}" \
+                    f"\n\nCurrent Status: {order_status}\n\n"
 
-    msg = EmailMultiAlternatives(
-        subject=subject,
-        body=message,
+    msg_buyer = EmailMultiAlternatives(
+        subject=subject_buyer,
+        body=message_buyer,
         from_email=settings.EMAIL_HOST_USER,
         to=[user.email]
     )
+    msg_buyer.send()
 
-    msg.send()
+    try:
+        shop_admin_user_id = order.ordered_items.first().product_info.shop.user_id
+        shop_admin = User.objects.get(id=shop_admin_user_id)
 
+        subject_admin = f"New Order #{order_id} Received"
+        message_admin = f"A new order #{order_id} has been received for your shop." \
+                        f"\n\nOrder Details:\n\n{pretty_order_data}\n\nCurrent Status: {order_status}\n\n"
+
+        msg_admin = EmailMultiAlternatives(
+            subject=subject_admin,
+            body=message_admin,
+            from_email=settings.EMAIL_HOST_USER,
+            to=[shop_admin.email]
+        )
+        msg_admin.send()
+
+    except AttributeError:
+        pass
