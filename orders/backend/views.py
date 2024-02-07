@@ -20,7 +20,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.db import IntegrityError
 from distutils.util import strtobool
 from .serializers import ShopSerializer, CategorySerializer, ProductInfoSerializer, UserSerializer, \
-    OrderItemSerializer, OrderSerializer, OrderItemCreateSerializer
+    OrderItemSerializer, OrderSerializer, OrderItemCreateSerializer, ContactSerializer
 
 User = get_user_model()
 
@@ -93,6 +93,7 @@ class AccountRegistration(APIView):
                     user = user_serializer.save()
                     user.set_password(request.data['password'])
                     user.save()
+                    new_user_registered.send(sender=self.__class__, user_id=user.id)
 
                     return JsonResponse({'Status': True})
                 else:
@@ -447,3 +448,67 @@ class PartnerOrders(APIView):
         serializer = OrderSerializer(order, many=True)
         # print(serializer.data)
         return Response(serializer.data)
+
+
+class ContactView(APIView):
+    def get(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
+
+        contacts = Contact.objects.filter(user_id=request.user.id)
+        serializer = ContactSerializer(contacts, many=True)
+        return Response(serializer.data)
+
+    def post(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
+
+        required_fields = {'city', 'street', 'phone'}
+        if required_fields.issubset(request.data):
+            request.data.update({'user': request.user.id})
+            serializer = ContactSerializer(data=request.data)
+
+            if serializer.is_valid():
+                serializer.save()
+                return JsonResponse({'Status': True})
+            else:
+                return JsonResponse({'Status': False, 'Errors': serializer.errors})
+
+        return JsonResponse({'Status': False, 'Errors': 'Required arguments are not specified'})
+
+    def delete(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
+
+        items_string = request.data.get('items')
+        if items_string:
+            items_list = items_string.split(',')
+            query = Q()
+            objects_deleted = False
+            for contact_id in items_list:
+                if contact_id.isdigit():
+                    query = query | Q(user_id=request.user.id, id=contact_id)
+                    objects_deleted = True
+
+            if objects_deleted:
+                deleted_count = Contact.objects.filter(query).delete()[0]
+                return JsonResponse({'Status': True, 'Objects deleted': deleted_count})
+
+        return JsonResponse({'Status': False, 'Errors': 'Required arguments are not specified'})
+
+    def put(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
+
+        contact_id = request.data.get('id')
+        if contact_id and contact_id.isdigit():
+            contact = Contact.objects.filter(id=contact_id, user_id=request.user.id).first()
+            if contact:
+                serializer = ContactSerializer(contact, data=request.data, partial=True)
+                if serializer.is_valid():
+                    serializer.save()
+                    return JsonResponse({'Status': True})
+                else:
+                    return JsonResponse({'Status': False, 'Errors': serializer.errors})
+
+        return JsonResponse({'Status': False, 'Errors': 'Required arguments are not specified'})

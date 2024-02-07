@@ -39,20 +39,26 @@ def password_reset_token_created(sender, instance, reset_password_token, **kwarg
 @receiver(new_user_registered)
 def new_user_registered_signal(user_id, **kwargs):
     """
-    Signal for email confirmation
+    Signal for new user
     """
-    # send an e-mail to the user
+
     token, _ = ConfirmEmailToken.objects.get_or_create(user_id=user_id)
 
+    user = User.objects.get(id=user_id)
+
+    body = f"Here's data about you:\n\n" \
+           f"User ID: {user.id}\n" \
+           f"Username: {user.username}\n"\
+           f"Email: {user.email}\n" \
+           f"Company: {user.company}\n" \
+           f"Position: {user.position}\n" \
+           f"Name: {user.first_name} {user.last_name}\n" \
+
     msg = EmailMultiAlternatives(
-        # title:
-        f"Password Reset Token for {token.user.email}",
-        # message:
-        token.key,
-        # from:
-        settings.EMAIL_HOST_USER,
-        # to:
-        [token.user.email]
+        subject=f"Thank you for the registration {user.email}",
+        body=body,
+        from_email=settings.EMAIL_HOST_USER,
+        to=[user.email]
     )
     if token.user.email == 'test@test.com':
         with open(os.getenv('path_file'), 'w') as s:

@@ -13,6 +13,7 @@ urlpatterns = [
     path('users/details/', views.AccountDetails.as_view(), name='account_details'),
     path('users/current/', views.CurrentUserView.as_view(), name='current_user'),
     path('users/password_reset/', include('django_rest_passwordreset.urls', namespace='password_reset')),
+    path('users/contacts/', views.ContactView.as_view(), name='contacts'),
     # path('users/password_reset/confirm', reset_password_confirm, name='password-reset-confirm'),
 
     path('categories/', views.CategoryView.as_view(), name='categories'),

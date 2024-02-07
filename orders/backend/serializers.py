@@ -90,3 +90,6 @@ class OrderSerializer(serializers.ModelSerializer):
     def get_total_sum(self, obj):
         total_sum = sum(item.product_info.price * item.quantity for item in obj.ordered_items.all())
         return total_sum
+
+
+
