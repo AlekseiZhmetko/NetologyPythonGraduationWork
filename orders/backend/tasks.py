@@ -1,5 +1,6 @@
-import json
-
+from time import sleep
+from django.core.mail import send_mail
+from celery import shared_task
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
 from django.dispatch import receiver, Signal
@@ -17,10 +18,21 @@ new_user_registered = Signal('user_id')
 new_order = Signal('user_id')
 
 
-@receiver(reset_password_token_created)
-def password_reset_token_created(sender, instance, reset_password_token, **kwargs):
+@shared_task()
+def send_test_email_task(email_address, message):
+    msg = EmailMultiAlternatives(
+        subject=f"Test message for {email_address}",
+        body=message,
+        from_email=settings.EMAIL_HOST_USER,
+        to=[email_address]
+    )
+    msg.send()
+
+
+@shared_task()
+def password_reset_token_created_task(sender, instance, reset_password_token, **kwargs):
     """
-    Signal with password reset token
+    Celery task for sending password reset token
     """
     # send an e-mail to the user
 
@@ -37,10 +49,10 @@ def password_reset_token_created(sender, instance, reset_password_token, **kwarg
     msg.send()
 
 
-@receiver(new_user_registered)
-def new_user_registered_signal(user_id, **kwargs):
+@shared_task()
+def new_user_registered_task(user_id, **kwargs):
     """
-    Signal for new user
+    Celery task for sending message to new user
     """
 
     token, _ = ConfirmEmailToken.objects.get_or_create(user_id=user_id)
@@ -48,7 +60,7 @@ def new_user_registered_signal(user_id, **kwargs):
     user = User.objects.get(id=user_id)
 
     body = f"Here's data about you:\n\n" \
-           f"User ID: {user.id}\n" \
+           f"User ID: {user.id}\n" \    
            f"Username: {user.username}\n"\
            f"Email: {user.email}\n" \
            f"Company: {user.company}\n" \
@@ -67,10 +79,10 @@ def new_user_registered_signal(user_id, **kwargs):
     msg.send()
 
 
-@receiver(new_order)
-def new_order_signal(user_id, order_id, order_status, **kwargs):
+@shared_task()
+def new_order_task(user_id, order_id, order_status, **kwargs):
     """
-    Signal with new order's data (sending to buyer and Shop admin)
+    Celery task for sending order information
     """
     user = get(id=user_id)
     order = Order.objects.get(id=order_id)

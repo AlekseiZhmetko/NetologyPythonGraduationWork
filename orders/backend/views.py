@@ -7,7 +7,8 @@ from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
 from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth.models import update_last_login
-from .signals import new_order, new_user_registered
+# from .signals import new_order, new_user_registered
+from .tasks import send_test_email_task, new_order_task, new_user_registered_task, password_reset_token_created_task
 from yaml import load as load_yaml, Loader
 import requests
 from django.core.exceptions import ValidationError
@@ -75,6 +76,33 @@ class PartnerImportDataFromYAML(APIView):
 
 class AccountRegistration(APIView):
 
+    # def post(self, request, *args, **kwargs):
+    #     if {'email', 'password'}.issubset(request.data):
+    #         errors = {}
+    #         try:
+    #             validate_password(request.data['password'])
+    #         except Exception as password_error:
+    #             error_array = []
+    #             # noinspection PyTypeChecker
+    #             for item in password_error:
+    #                 error_array.append(item)
+    #             return JsonResponse({'Status': False, 'Errors': {'password': error_array}})
+    #         else:
+    #             request.data.update({})
+    #             user_serializer = UserSerializer(data=request.data)
+    #             if user_serializer.is_valid():
+    #                 user = user_serializer.save()
+    #                 user.set_password(request.data['password'])
+    #                 user.save()
+    #                 new_user_registered_task.delay(sender=self.__class__, user_id=user.id)
+    #
+    #                 return JsonResponse({'Status': True})
+    #             else:
+    #
+    #                 return JsonResponse({'Status': False, 'Errors': user_serializer.errors})
+    #     x = type(request.data)
+    #     return JsonResponse({'Status': False, 'Errors': '', 'a': str(x)})
+
     def post(self, request, *args, **kwargs):
         if {'email', 'password'}.issubset(request.data):
             errors = {}
@@ -93,11 +121,11 @@ class AccountRegistration(APIView):
                     user = user_serializer.save()
                     user.set_password(request.data['password'])
                     user.save()
-                    new_user_registered.send(sender=self.__class__, user_id=user.id)
+                    class_name = self.__class__.__name__  # Get the class name as a string
+                    new_user_registered_task.delay(user_id=user.id, sender_class=class_name)
 
                     return JsonResponse({'Status': True})
                 else:
-
                     return JsonResponse({'Status': False, 'Errors': user_serializer.errors})
         x = type(request.data)
         return JsonResponse({'Status': False, 'Errors': '', 'a': str(x)})
@@ -393,7 +421,7 @@ class OrderView(APIView):
                     return JsonResponse({'Status': False, 'Errors': 'Wrong arguments'})
                 else:
                     if is_updated:
-                        new_order.send(sender=self.__class__, user_id=request.user.id, order_id=request.data['id'],
+                        new_order_task.delay(sender=self.__class__, user_id=request.user.id, order_id=request.data['id'],
                                        order_status='new')
                         return JsonResponse({'Status': True})
 
@@ -512,3 +540,9 @@ class ContactView(APIView):
                     return JsonResponse({'Status': False, 'Errors': serializer.errors})
 
         return JsonResponse({'Status': False, 'Errors': 'Required arguments are not specified'})
+
+# тестовый view для настройки celery
+class TestEmailView(APIView):
+    def get(self, request):
+        send_test_email_task.delay(email_address='a.zhmetko@gmail.com', message='FUCK YOU!')
+        return JsonResponse({'Status': True})

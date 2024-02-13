@@ -22,6 +22,7 @@ urlpatterns = [
     path('products/', views.ProductInfoView.as_view(), name='products_info'),
     path('basket/', views.BasketView.as_view(), name='basket'),
     path('orders/', views.OrderView.as_view(), name='orders'),
+    path('testemail/', views.TestEmailView.as_view(), name='testemail'),
 
     # path('', views.index, name='index')
 
