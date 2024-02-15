@@ -7,7 +7,7 @@ from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
 from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth.models import update_last_login
-# from .signals import new_order, new_user_registered
+# from .signals import new_order, new_user_registered, password_reset_token_created
 from .tasks import send_test_email_task, new_order_task, new_user_registered_task, password_reset_token_created_task
 from yaml import load as load_yaml, Loader
 import requests
@@ -22,6 +22,9 @@ from django.db import IntegrityError
 from distutils.util import strtobool
 from .serializers import ShopSerializer, CategorySerializer, ProductInfoSerializer, UserSerializer, \
     OrderItemSerializer, OrderSerializer, OrderItemCreateSerializer, ContactSerializer
+from django_rest_passwordreset.views import ResetPasswordRequestToken
+from django_rest_passwordreset.models import ResetPasswordToken
+
 
 User = get_user_model()
 
@@ -406,6 +409,28 @@ class OrderView(APIView):
         serializer = OrderSerializer(order, many=True)
         return Response(serializer.data)
 
+    # def post(self, request, *args, **kwargs):
+    #     if not request.user.is_authenticated:
+    #         return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
+    #
+    #     if {'id', 'contact'}.issubset(request.data):
+    #         if request.data['id']:
+    #             try:
+    #                 is_updated = Order.objects.filter(
+    #                     user_id=request.user.id, id=request.data['id']).update(
+    #                     status='new', contact_id=request.data['contact'])
+    #             except IntegrityError as error:
+    #                 print(error)
+    #                 return JsonResponse({'Status': False, 'Errors': 'Wrong arguments'})
+    #             else:
+    #                 if is_updated:
+    #                     new_order_task.delay(sender=self.__class__, user_id=request.user.id,
+    #                                          order_id=request.data['id'],
+    #                                          order_status='new')
+    #                     return JsonResponse({'Status': True})
+    #
+    #     return JsonResponse({'Status': False, 'Errors': 'Required arguments are not specified'})
+
     def post(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
             return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
@@ -413,17 +438,13 @@ class OrderView(APIView):
         if {'id', 'contact'}.issubset(request.data):
             if request.data['id']:
                 try:
-                    is_updated = Order.objects.filter(
-                        user_id=request.user.id, id=request.data['id']).update(
-                        status='new', contact_id=request.data['contact'])
+                    order_id = request.data['id']
+                    order_status = 'new'
+                    new_order_task.delay(user_id=request.user.id, order_id=order_id, order_status=order_status)
+                    return JsonResponse({'Status': True})
                 except IntegrityError as error:
                     print(error)
                     return JsonResponse({'Status': False, 'Errors': 'Wrong arguments'})
-                else:
-                    if is_updated:
-                        new_order_task.delay(sender=self.__class__, user_id=request.user.id, order_id=request.data['id'],
-                                       order_status='new')
-                        return JsonResponse({'Status': True})
 
         return JsonResponse({'Status': False, 'Errors': 'Required arguments are not specified'})
 
@@ -541,8 +562,21 @@ class ContactView(APIView):
 
         return JsonResponse({'Status': False, 'Errors': 'Required arguments are not specified'})
 
-# тестовый view для настройки celery
+
+# test view for Celery development
 class TestEmailView(APIView):
     def get(self, request):
-        send_test_email_task.delay(email_address='a.zhmetko@gmail.com', message='FUCK YOU!')
+        send_test_email_task.delay(email_address='a.zhmetko@gmail.com', message='Test Test Test')
         return JsonResponse({'Status': True})
+
+
+class CustomResetPasswordRequestToken(ResetPasswordRequestToken):
+    def create(self, request, *args, **kwargs):
+        response = super().create(request, *args, **kwargs)
+        email = request.data.get('email')
+        reset_password_token = ResetPasswordToken.objects.filter(user__email=email).first()
+
+        if reset_password_token:
+            password_reset_token_created_task.delay(email, reset_password_token)
+
+        return response

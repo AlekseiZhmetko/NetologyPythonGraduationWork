@@ -72,7 +72,7 @@ def new_order_signal(user_id, order_id, order_status, **kwargs):
     """
     Signal with new order's data (sending to buyer and Shop admin)
     """
-    user = get(id=user_id)
+    user = User.objects.get(id=user_id)
     order = Order.objects.get(id=order_id)
 
     order_serializer = OrderSerializer(order)
@@ -93,7 +93,7 @@ def new_order_signal(user_id, order_id, order_status, **kwargs):
 
     try:
         shop_admin_user_id = order.ordered_items.first().product_info.shop.user_id
-        shop_admin = get(id=shop_admin_user_id)
+        shop_admin = User.objects.get(id=shop_admin_user_id)
 
         subject_admin = f"New Order #{order_id} Received"
         message_admin = f"A new order #{order_id} has been received for your shop." \
