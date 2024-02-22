@@ -1,21 +1,9 @@
-from time import sleep
-from django.core.mail import send_mail
 from celery import shared_task
-from django.conf import settings
-from django.core.mail import EmailMultiAlternatives
-from django.dispatch import receiver, Signal
-from django_rest_passwordreset.signals import reset_password_token_created
-import os
-from django.contrib.auth.models import User
-from .serializers import OrderSerializer
-from .models import ConfirmEmailToken, User, Order, Shop
-from dotenv import load_dotenv
 import json
 
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
 from django.dispatch import receiver, Signal
-from django_rest_passwordreset.signals import reset_password_token_created
 import os
 from django.contrib.auth.models import User
 from .serializers import OrderSerializer

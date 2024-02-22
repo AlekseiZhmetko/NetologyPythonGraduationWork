@@ -79,32 +79,6 @@ class PartnerImportDataFromYAML(APIView):
 
 class AccountRegistration(APIView):
 
-    # def post(self, request, *args, **kwargs):
-    #     if {'email', 'password'}.issubset(request.data):
-    #         errors = {}
-    #         try:
-    #             validate_password(request.data['password'])
-    #         except Exception as password_error:
-    #             error_array = []
-    #             # noinspection PyTypeChecker
-    #             for item in password_error:
-    #                 error_array.append(item)
-    #             return JsonResponse({'Status': False, 'Errors': {'password': error_array}})
-    #         else:
-    #             request.data.update({})
-    #             user_serializer = UserSerializer(data=request.data)
-    #             if user_serializer.is_valid():
-    #                 user = user_serializer.save()
-    #                 user.set_password(request.data['password'])
-    #                 user.save()
-    #                 new_user_registered_task.delay(sender=self.__class__, user_id=user.id)
-    #
-    #                 return JsonResponse({'Status': True})
-    #             else:
-    #
-    #                 return JsonResponse({'Status': False, 'Errors': user_serializer.errors})
-    #     x = type(request.data)
-    #     return JsonResponse({'Status': False, 'Errors': '', 'a': str(x)})
 
     def post(self, request, *args, **kwargs):
         if {'email', 'password'}.issubset(request.data):
@@ -409,27 +383,6 @@ class OrderView(APIView):
         serializer = OrderSerializer(order, many=True)
         return Response(serializer.data)
 
-    # def post(self, request, *args, **kwargs):
-    #     if not request.user.is_authenticated:
-    #         return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
-    #
-    #     if {'id', 'contact'}.issubset(request.data):
-    #         if request.data['id']:
-    #             try:
-    #                 is_updated = Order.objects.filter(
-    #                     user_id=request.user.id, id=request.data['id']).update(
-    #                     status='new', contact_id=request.data['contact'])
-    #             except IntegrityError as error:
-    #                 print(error)
-    #                 return JsonResponse({'Status': False, 'Errors': 'Wrong arguments'})
-    #             else:
-    #                 if is_updated:
-    #                     new_order_task.delay(sender=self.__class__, user_id=request.user.id,
-    #                                          order_id=request.data['id'],
-    #                                          order_status='new')
-    #                     return JsonResponse({'Status': True})
-    #
-    #     return JsonResponse({'Status': False, 'Errors': 'Required arguments are not specified'})
 
     def post(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
