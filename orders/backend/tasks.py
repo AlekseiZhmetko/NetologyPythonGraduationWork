@@ -19,6 +19,9 @@ new_order = Signal('user_id')
 
 @shared_task()
 def send_test_email_task(email_address, message):
+    """
+    Celery task for sending test email
+    """
     msg = EmailMultiAlternatives(
         subject=f"Test message for {email_address}",
         body=message,

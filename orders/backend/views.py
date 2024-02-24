@@ -30,6 +30,9 @@ User = get_user_model()
 
 
 class PartnerImportDataFromYAML(APIView):
+    """
+    View for importing data from yaml file
+    """
     # check that data in url is raw (if url from GitHub)!
     def post(self, request, *args, **kwargs):
 
@@ -78,7 +81,9 @@ class PartnerImportDataFromYAML(APIView):
 
 
 class AccountRegistration(APIView):
-
+    """
+    View for user registration
+    """
 
     def post(self, request, *args, **kwargs):
         if {'email', 'password'}.issubset(request.data):
@@ -109,6 +114,9 @@ class AccountRegistration(APIView):
 
 
 class ConfirmAccount(APIView):
+    """
+    View for user account confirmation
+    """
     def post(self, request, *args, **kwargs):
 
         if {'email', 'token'}.issubset(request.data):
@@ -127,6 +135,9 @@ class ConfirmAccount(APIView):
 
 
 class LoginAccount(APIView):
+    """
+    View for account login
+    """
     def post(self, request, *args, **kwargs):
 
         if {'email', 'password'}.issubset(request.data):
@@ -145,6 +156,10 @@ class LoginAccount(APIView):
 
 
 class AccountDetails(APIView):
+    """
+    View for getting and updating user account details
+    """
+
     def get(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
             return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
@@ -198,6 +213,9 @@ class AccountDetails(APIView):
 
 
 class ShopView(ListAPIView):
+    """
+    View for getting a list of shops or creating a new shop
+    """
     queryset = Shop.objects.all()
     serializer_class = ShopSerializer
 
@@ -207,16 +225,27 @@ class ShopView(ListAPIView):
 
 
 class CategoryView(ListAPIView):
+    """
+    View for getting a list of categories
+    """
+
     queryset = Category.objects.filter()
     serializer_class = CategorySerializer
 
 
 class ProductsView(ListAPIView):
+    """
+    View for getting a list of products
+    """
     queryset = ProductInfo.objects.filter()
     serializer_class = ProductInfoSerializer
 
 
 class ProductInfoView(ListAPIView):
+    """
+    View for getting product's info
+    """
+
     def get(self, request, *args, **kwargs):
 
         query = Q(shop__state=True)
@@ -241,6 +270,9 @@ class ProductInfoView(ListAPIView):
 
 
 class CurrentUserView(APIView):
+    """
+    View for getting current user
+    """
     permission_classes = (IsAuthenticated,)
 
     def get(self, request):
@@ -249,7 +281,9 @@ class CurrentUserView(APIView):
 
 
 class BasketView(APIView):
-
+    """
+    View for managing a user's basket (shopping cart)
+    """
     def get(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
             return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
@@ -370,6 +404,9 @@ class BasketView(APIView):
 
 
 class OrderView(APIView):
+    """
+    View for getting and updating orders
+    """
 
     def get(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
@@ -403,6 +440,9 @@ class OrderView(APIView):
 
 
 class PartnerState(APIView):
+    """
+    View for getting and changing partner state
+    """
     def get(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
             return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
@@ -432,6 +472,9 @@ class PartnerState(APIView):
 
 
 class PartnerOrders(APIView):
+    """
+    View for getting partner's orders
+    """
     def get(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
             return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
@@ -453,6 +496,9 @@ class PartnerOrders(APIView):
 
 
 class ContactView(APIView):
+    """
+    View for getting and creating contacts
+    """
     def get(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
             return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
@@ -516,14 +562,20 @@ class ContactView(APIView):
         return JsonResponse({'Status': False, 'Errors': 'Required arguments are not specified'})
 
 
-# test view for Celery development
+
 class TestEmailView(APIView):
+    """
+    View for testing celery
+    """
     def get(self, request):
         send_test_email_task.delay(email_address='a.zhmetko@gmail.com', message='Test Test Test')
         return JsonResponse({'Status': True})
 
 
 class CustomResetPasswordRequestToken(ResetPasswordRequestToken):
+    """
+    Reset password token request customization
+    """
     def create(self, request, *args, **kwargs):
         response = super().create(request, *args, **kwargs)
         email = request.data.get('email')

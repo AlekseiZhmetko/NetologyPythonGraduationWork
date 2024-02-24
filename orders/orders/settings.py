@@ -46,7 +46,8 @@ INSTALLED_APPS = [
 
     'backend',
     'crispy_forms',
-    'crispy_bootstrap4'
+    'crispy_bootstrap4',
+    'drf_spectacular',
 ]
 
 CRISPY_TEMPLATE_PACK = 'bootstrap4'
@@ -122,7 +123,9 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework.authentication.TokenAuthentication',
         'rest_framework.authentication.SessionAuthentication',
+
     ),
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     # 'DEFAULT_PERMISSION_CLASSES': (
     #     'rest_framework.permissions.IsAuthenticated',
     # )
