@@ -17,10 +17,11 @@ class ContactSerializer(serializers.ModelSerializer):
 
 class UserSerializer(serializers.ModelSerializer):
     contacts = ContactSerializer(read_only=True, many=True)
+    avatar = serializers.ImageField(write_only=True)
 
     class Meta:
         model = User
-        fields = ('id', 'username', 'first_name', 'last_name', 'email', 'company', 'position', 'contacts')
+        fields = ('id', 'username', 'first_name', 'last_name', 'email', 'company', 'position', 'contacts', 'avatar')
         read_only_fields = ('id',)
 
 
