@@ -21,6 +21,8 @@ from django.conf import settings
 from django.contrib.auth import logout
 
 urlpatterns = [
+    path('jet/', include('jet.urls', 'jet')),
+    path('jet/dashboard/', include('jet.dashboard.urls', 'jet-dashboard')),
     path('admin/', admin.site.urls),
     path('', include('backend.urls')),
 

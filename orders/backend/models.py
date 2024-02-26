@@ -50,7 +50,7 @@ class UserManager(BaseUserManager):
 
 class User(AbstractUser):
     REQUIRED_FIELDS = []
-    USERNAME_FIELD = 'email'
+    USERNAME_FIELD = 'username'
     email = models.EmailField(_('Email'), unique=True,
                               error_messages={'unique': _("This email address is already exists."),
                                               },
@@ -63,7 +63,7 @@ class User(AbstractUser):
     # username_validator = UnicodeUsernameValidator()
     username = models.CharField(
         _('Username'),
-        max_length=150,
+        max_length=150, unique=True,
         blank=True,
         # unique=True,
         help_text=_('Required. 150 characters or fewer. Letters, digits and @/./+/-/_ only.'),
