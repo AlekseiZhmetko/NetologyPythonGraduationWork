@@ -274,6 +274,7 @@ class CurrentUserView(APIView):
     View for getting current user
     """
     permission_classes = (IsAuthenticated,)
+    throttle_scope = 'current_user'
 
     def get(self, request):
         serializer = UserSerializer(request.user)
