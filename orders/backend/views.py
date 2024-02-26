@@ -1,3 +1,5 @@
+from django.shortcuts import render
+
 from .models import Shop, Category, Product, ProductInfo, ProductParameter, Parameter, Contact, \
     Order, OrderItem, ConfirmEmailToken
 
@@ -138,6 +140,9 @@ class LoginAccount(APIView):
     """
     View for account login
     """
+    def get(self, request):
+        return render(request, 'login.html')
+
     def post(self, request, *args, **kwargs):
 
         if {'email', 'password'}.issubset(request.data):
