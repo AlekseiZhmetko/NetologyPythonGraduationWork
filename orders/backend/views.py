@@ -26,6 +26,10 @@ from .serializers import ShopSerializer, CategorySerializer, ProductInfoSerializ
     OrderItemSerializer, OrderSerializer, OrderItemCreateSerializer, ContactSerializer
 from django_rest_passwordreset.views import ResetPasswordRequestToken
 from django_rest_passwordreset.models import ResetPasswordToken
+from django.core.files.base import ContentFile
+from rest_framework import status
+from rest_framework.exceptions import ValidationError
+
 
 
 User = get_user_model()
@@ -82,6 +86,40 @@ class PartnerImportDataFromYAML(APIView):
             return JsonResponse({'Status': True})
 
 
+# class AccountRegistration(APIView):
+#     """
+#     View for user registration
+#     """
+#
+#     def post(self, request, *args, **kwargs):
+#         if {'email', 'password'}.issubset(request.data):
+#             errors = {}
+#             try:
+#                 validate_password(request.data['password'])
+#             except Exception as password_error:
+#                 error_array = []
+#                 # noinspection PyTypeChecker
+#                 for item in password_error:
+#                     error_array.append(item)
+#                 return JsonResponse({'Status': False, 'Errors': {'password': error_array}})
+#             else:
+#                 request.data.update({})
+#                 user_serializer = UserSerializer(data=request.data)
+#                 if user_serializer.is_valid():
+#                     user = user_serializer.save()
+#                     user.set_password(request.data['password'])
+#                     user.save()
+#                     class_name = self.__class__.__name__  # Get the class name as a string
+#                     new_user_registered_task.delay(user_id=user.id, sender_class=class_name)
+#
+#                     return JsonResponse({'Status': True})
+#                 else:
+#                     return JsonResponse({'Status': False, 'Errors': user_serializer.errors})
+#         x = type(request.data)
+#         return JsonResponse({'Status': False, 'Errors': '', 'a': str(x)})
+
+
+
 class AccountRegistration(APIView):
     """
     View for user registration
@@ -90,30 +128,34 @@ class AccountRegistration(APIView):
     def post(self, request, *args, **kwargs):
         if {'email', 'password'}.issubset(request.data):
             errors = {}
+
             try:
                 validate_password(request.data['password'])
-            except Exception as password_error:
-                error_array = []
-                # noinspection PyTypeChecker
-                for item in password_error:
-                    error_array.append(item)
-                return JsonResponse({'Status': False, 'Errors': {'password': error_array}})
-            else:
-                request.data.update({})
-                user_serializer = UserSerializer(data=request.data)
-                if user_serializer.is_valid():
-                    user = user_serializer.save()
-                    user.set_password(request.data['password'])
-                    user.save()
-                    class_name = self.__class__.__name__  # Get the class name as a string
-                    new_user_registered_task.delay(user_id=user.id, sender_class=class_name)
+            except ValidationError as password_error:
+                error_array = [str(error) for error in password_error]
+                return JsonResponse({'Status': False, 'Errors': {'password': error_array}}, status=status.HTTP_400_BAD_REQUEST)
 
-                    return JsonResponse({'Status': True})
+            if 'avatar' in request.data:
+                avatar_url = request.data['avatar']
+                response = requests.get(avatar_url)
+                if response.status_code == 200:
+                    request.data['avatar'] = ContentFile(response.content, name=f'{request.data["email"]}_avatar.jpg')
                 else:
-                    return JsonResponse({'Status': False, 'Errors': user_serializer.errors})
-        x = type(request.data)
-        return JsonResponse({'Status': False, 'Errors': '', 'a': str(x)})
+                    return JsonResponse({'Status': False, 'Errors': {'avatar': ['Failed to download the avatar image.']}}, status=status.HTTP_400_BAD_REQUEST)
 
+            user_serializer = UserSerializer(data=request.data)
+            if user_serializer.is_valid():
+                user = user_serializer.save()
+                user.set_password(request.data['password'])
+                user.save()
+                class_name = self.__class__.__name__
+                new_user_registered_task.delay(user_id=user.id, sender_class=class_name)
+
+                return JsonResponse({'Status': True})
+            else:
+                return JsonResponse({'Status': False, 'Errors': user_serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+        return JsonResponse({'Status': False, 'Errors': 'Missing required fields (email, password)'}, status=status.HTTP_400_BAD_REQUEST)
 
 class ConfirmAccount(APIView):
     """
