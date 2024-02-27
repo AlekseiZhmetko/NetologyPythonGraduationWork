@@ -30,8 +30,6 @@ from django.core.files.base import ContentFile
 from rest_framework import status
 from rest_framework.exceptions import ValidationError
 
-
-
 User = get_user_model()
 
 
@@ -39,13 +37,14 @@ class PartnerImportDataFromYAML(APIView):
     """
     View for importing data from yaml file
     """
-    # check that data in url is raw (if url from GitHub)!
-    def post(self, request, *args, **kwargs):
 
+    def post(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
             return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
+
         if request.user.type != 'shop':
             return JsonResponse({'Status': False, 'Error': 'Shops only'}, status=403)
+
         url = request.data.get('url')
 
         if url:
@@ -53,71 +52,66 @@ class PartnerImportDataFromYAML(APIView):
             try:
                 validate_url(url)
             except ValidationError as e:
-                return JsonResponse({'Status': False, 'Error': str(e)})
+                return JsonResponse({'Status': False, 'Error': str(e)}, status=400)
             else:
                 stream = requests.get(url).content
                 data = load_yaml(stream, Loader=Loader)
-                # print(data)
 
                 shop, _ = Shop.objects.get_or_create(name=data['shop'], user_id=request.user.id)
 
                 for category in data['categories']:
                     category_object, _ = Category.objects.get_or_create(id=category['id'], name=category['name'])
-                    # print(category_object)
                     category_object.shops.add(shop.id)
                     category_object.save()
+
                 ProductInfo.objects.filter(shop_id=shop.id).delete()
+
                 for item in data['goods']:
                     product, _ = Product.objects.get_or_create(name=item['name'], category_id=item['category'])
+                    product_image_url = item.get('product_image')
+                    # print(product_image_url)
+                    if product_image_url:
+                        response = requests.get(product_image_url)
 
-                    product_info = ProductInfo.objects.create(product_id=product.id,
-                                                              external_id=item['id'],
-                                                              model=item['model'],
-                                                              price=item['price'],
-                                                              price_rrc=item['price_rrc'],
-                                                              quantity=item['quantity'],
-                                                              shop_id=shop.id)
+                        if response.status_code == 200:
+                            filename = f'{product.id}_image.jpg'
+                            # print(filename)
+                            product_info = ProductInfo.objects.create(
+                                product=product,
+                                external_id=item['id'],
+                                model=item['model'],
+                                price=item['price'],
+                                price_rrc=item['price_rrc'],
+                                quantity=item['quantity'],
+                                shop_id=shop.id,
+                                product_image=ContentFile(response.content, name=filename),
+                            )
+                        else:
+                            return JsonResponse(
+                                {
+                                    'Status': False,
+                                    'Error': f'Failed to download product_image from {product_image_url}.'
+                                },
+                                status=400)
+                    else:
+                        product_info = ProductInfo.objects.create(
+                            product=product,
+                            external_id=item['id'],
+                            model=item['model'],
+                            price=item['price'],
+                            price_rrc=item['price_rrc'],
+                            quantity=item['quantity'],
+                            shop_id=shop.id,
+                        )
+
                     for name, value in item['parameters'].items():
                         parameter_object, _ = Parameter.objects.get_or_create(name=name)
-                        ProductParameter.objects.create(product_info_id=product_info.id,
-                                                        parameter_id=parameter_object.id,
+                        ProductParameter.objects.create(product_info=product_info, parameter=parameter_object,
                                                         value=value)
 
-            return JsonResponse({'Status': True})
+                return JsonResponse({'Status': True})
 
-
-# class AccountRegistration(APIView):
-#     """
-#     View for user registration
-#     """
-#
-#     def post(self, request, *args, **kwargs):
-#         if {'email', 'password'}.issubset(request.data):
-#             errors = {}
-#             try:
-#                 validate_password(request.data['password'])
-#             except Exception as password_error:
-#                 error_array = []
-#                 # noinspection PyTypeChecker
-#                 for item in password_error:
-#                     error_array.append(item)
-#                 return JsonResponse({'Status': False, 'Errors': {'password': error_array}})
-#             else:
-#                 request.data.update({})
-#                 user_serializer = UserSerializer(data=request.data)
-#                 if user_serializer.is_valid():
-#                     user = user_serializer.save()
-#                     user.set_password(request.data['password'])
-#                     user.save()
-#                     class_name = self.__class__.__name__  # Get the class name as a string
-#                     new_user_registered_task.delay(user_id=user.id, sender_class=class_name)
-#
-#                     return JsonResponse({'Status': True})
-#                 else:
-#                     return JsonResponse({'Status': False, 'Errors': user_serializer.errors})
-#         x = type(request.data)
-#         return JsonResponse({'Status': False, 'Errors': '', 'a': str(x)})
-
+            return JsonResponse({'Status': False, 'Error': 'Missing required URL in data'}, status=400)
 
 
 class AccountRegistration(APIView):
@@ -133,7 +127,7 @@ class AccountRegistration(APIView):
                 validate_password(request.data['password'])
             except ValidationError as password_error:
                 error_array = [str(error) for error in password_error]
-                return JsonResponse({'Status': False, 'Errors': {'password': error_array}}, status=status.HTTP_400_BAD_REQUEST)
+                return JsonResponse({'Status': False, 'Errors': {'password': error_array}}, status=400)
 
             if 'avatar' in request.data:
                 avatar_url = request.data['avatar']
@@ -141,7 +135,13 @@ class AccountRegistration(APIView):
                 if response.status_code == 200:
                     request.data['avatar'] = ContentFile(response.content, name=f'{request.data["email"]}_avatar.jpg')
                 else:
-                    return JsonResponse({'Status': False, 'Errors': {'avatar': ['Failed to download the avatar image.']}}, status=status.HTTP_400_BAD_REQUEST)
+                    return JsonResponse(
+                        {'Status': False, 'Errors':
+                            {
+                                'avatar': ['Failed to download the avatar image.']}
+                         },
+                        status=400
+                    )
 
             user_serializer = UserSerializer(data=request.data)
             if user_serializer.is_valid():
@@ -153,14 +153,16 @@ class AccountRegistration(APIView):
 
                 return JsonResponse({'Status': True})
             else:
-                return JsonResponse({'Status': False, 'Errors': user_serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+                return JsonResponse({'Status': False, 'Errors': user_serializer.errors}, status=400)
 
-        return JsonResponse({'Status': False, 'Errors': 'Missing required fields (email, password)'}, status=status.HTTP_400_BAD_REQUEST)
+        return JsonResponse({'Status': False, 'Errors': 'Missing required fields (email, password)'}, status=400)
+
 
 class ConfirmAccount(APIView):
     """
     View for user account confirmation
     """
+
     def post(self, request, *args, **kwargs):
 
         if {'email', 'token'}.issubset(request.data):
@@ -182,6 +184,7 @@ class LoginAccount(APIView):
     """
     View for account login
     """
+
     def get(self, request):
         return render(request, 'login.html')
 
@@ -332,6 +335,7 @@ class BasketView(APIView):
     """
     View for managing a user's basket (shopping cart)
     """
+
     def get(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
             return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
@@ -468,7 +472,6 @@ class OrderView(APIView):
         serializer = OrderSerializer(order, many=True)
         return Response(serializer.data)
 
-
     def post(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
             return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
@@ -491,6 +494,7 @@ class PartnerState(APIView):
     """
     View for getting and changing partner state
     """
+
     def get(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
             return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
@@ -523,6 +527,7 @@ class PartnerOrders(APIView):
     """
     View for getting partner's orders
     """
+
     def get(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
             return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
@@ -547,6 +552,7 @@ class ContactView(APIView):
     """
     View for getting and creating contacts
     """
+
     def get(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
             return JsonResponse({'Status': False, 'Error': 'Log in required'}, status=403)
@@ -610,11 +616,11 @@ class ContactView(APIView):
         return JsonResponse({'Status': False, 'Errors': 'Required arguments are not specified'})
 
 
-
 class TestEmailView(APIView):
     """
     View for testing celery
     """
+
     def get(self, request):
         send_test_email_task.delay(email_address='a.zhmetko@gmail.com', message='Test Test Test')
         return JsonResponse({'Status': True})
@@ -624,6 +630,7 @@ class CustomResetPasswordRequestToken(ResetPasswordRequestToken):
     """
     Reset password token request customization
     """
+
     def create(self, request, *args, **kwargs):
         response = super().create(request, *args, **kwargs)
         email = request.data.get('email')

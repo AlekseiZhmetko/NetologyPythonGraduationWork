@@ -144,6 +144,12 @@ class ProductInfo(models.Model):
     quantity = models.IntegerField(verbose_name='Quantity')
     price = models.IntegerField(verbose_name='Price')
     price_rrc = models.IntegerField(verbose_name='Recommended retail price')
+    product_image = ThumbnailerImageField(
+            _('Product_image'),
+            upload_to='product_images/',
+            null=True,
+            blank=True,
+            resize_source=dict(size=(600, 600), crop='smart', upscale=False))
 
     class Meta:
         verbose_name = 'Product info'
