@@ -15,6 +15,7 @@ goods:
     price: 110000
     price_rrc: 116990
     quantity: 14
+    product_image: https://image.alza.cz/products/RI047b4/RI047b4.jpg
     parameters:
       "Диагональ (дюйм)": 6.5
       "Разрешение (пикс)": 2688x1242
