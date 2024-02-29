@@ -119,6 +119,21 @@ class AccountRegistration(APIView):
     View for user registration
     """
 
+    def avatar_upload(self, request):
+        if 'avatar' in request.data:
+            avatar_url = request.data['avatar']
+            response = requests.get(avatar_url)
+            if response.status_code == 200:
+                request.data['avatar'] = ContentFile(response.content, name=f'{request.data["email"]}_avatar.jpg')
+            else:
+                return JsonResponse(
+                    {'Status': False, 'Errors':
+                        {
+                            'avatar': ['Failed to download the avatar image.']}
+                     },
+                    status=400
+                )
+
     def post(self, request, *args, **kwargs):
         if {'email', 'password'}.issubset(request.data):
             errors = {}
@@ -129,19 +144,21 @@ class AccountRegistration(APIView):
                 error_array = [str(error) for error in password_error]
                 return JsonResponse({'Status': False, 'Errors': {'password': error_array}}, status=400)
 
-            if 'avatar' in request.data:
-                avatar_url = request.data['avatar']
-                response = requests.get(avatar_url)
-                if response.status_code == 200:
-                    request.data['avatar'] = ContentFile(response.content, name=f'{request.data["email"]}_avatar.jpg')
-                else:
-                    return JsonResponse(
-                        {'Status': False, 'Errors':
-                            {
-                                'avatar': ['Failed to download the avatar image.']}
-                         },
-                        status=400
-                    )
+            # if 'avatar' in request.data:
+            #     avatar_url = request.data['avatar']
+            #     response = requests.get(avatar_url)
+            #     if response.status_code == 200:
+            #         request.data['avatar'] = ContentFile(response.content, name=f'{request.data["email"]}_avatar.jpg')
+            #     else:
+            #         return JsonResponse(
+            #             {'Status': False, 'Errors':
+            #                 {
+            #                     'avatar': ['Failed to download the avatar image.']}
+            #              },
+            #             status=400
+            #         )
+
+            self.avatar_upload(request)
 
             user_serializer = UserSerializer(data=request.data)
             if user_serializer.is_valid():

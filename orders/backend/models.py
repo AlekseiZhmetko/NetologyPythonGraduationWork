@@ -68,7 +68,7 @@ class User(AbstractUser):
         help_text=_('Required. 150 characters or fewer. Letters, digits and @/./+/-/_ only.'))
     avatar = ThumbnailerImageField(
         _('Avatar'),
-        upload_to='avatars/',
+        upload_to='user_avatars/',
         null=True,
         blank=True,
         help_text=_('Upload an image for the user avatar.'),

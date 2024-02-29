@@ -17,7 +17,7 @@ class ContactSerializer(serializers.ModelSerializer):
 
 class UserSerializer(serializers.ModelSerializer):
     contacts = ContactSerializer(read_only=True, many=True)
-    avatar = serializers.ImageField(write_only=True)
+    avatar = serializers.ImageField(write_only=True, required=False, default=None)
 
     class Meta:
         model = User
