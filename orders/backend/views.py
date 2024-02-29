@@ -1,3 +1,4 @@
+import sentry_sdk
 from django.shortcuts import render
 
 from .models import Shop, Category, Product, ProductInfo, ProductParameter, Parameter, Contact, \
@@ -249,22 +250,28 @@ class LoginAccount(APIView):
     def get(self, request):
         return render(request, 'login.html')
 
+
     def post(self, request, *args, **kwargs):
+        try:
+            if {'email', 'password'}.issubset(request.data):
+                user = authenticate(request, email=request.data['email'], password=request.data['password'])
+                print(user)
+                if user is not None:
+                    if user.is_active:
+                        token, _ = Token.objects.get_or_create(user=user)
+                        # Обновляем поле last_login в БД, т.к. при работе через токен оно не обновляется автоматически
+                        update_last_login(None, user)
+                    return JsonResponse({'Status': True, 'Token': token.key})
 
-        if {'email', 'password'}.issubset(request.data):
-            user = authenticate(request, email=request.data['email'], password=request.data['password'])
-            print(user)
-            if user is not None:
-                if user.is_active:
-                    token, _ = Token.objects.get_or_create(user=user)
-                    # Обновляем поле last_login в БД, т.к. при работе через токен оно не обновляется автоматически
-                    update_last_login(None, user)
-                return JsonResponse({'Status': True, 'Token': token.key})
+                return sentry_sdk.capture_message("Login unsuccessful. Sent to Sentry")
+                # return JsonResponse({'Status': False, 'Errors': 'Authentication is not successful'})
 
-            return JsonResponse({'Status': False, 'Errors': 'Authentication is not successful'})
 
-        return JsonResponse({'Status': False, 'Errors': 'Required arguments are not specified'})
+            return JsonResponse({'Status': False, 'Errors': 'Required arguments are not specified'})
 
+
+        except Exception as e:
+            sentry_sdk.capture_exception(e)
 
 class AccountDetails(APIView):
     """
