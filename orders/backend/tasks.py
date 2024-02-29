@@ -2,19 +2,47 @@ from celery import shared_task
 import json
 
 from django.conf import settings
+from django.core.files.base import ContentFile
 from django.core.mail import EmailMultiAlternatives
 from django.dispatch import receiver, Signal
 import os
 from django.contrib.auth.models import User
+from django.http import JsonResponse
+
 from .serializers import OrderSerializer
-from .models import ConfirmEmailToken, User, Order, Shop
+from .models import ConfirmEmailToken, User, Order, Shop, ProductInfo, Product
 from dotenv import load_dotenv
 from django.shortcuts import get_object_or_404
+
+import requests
 
 load_dotenv()
 new_user_registered = Signal('user_id')
 
 new_order = Signal('user_id')
+
+
+@shared_task()
+def upload_product_image(product_info_id, product_image_url):
+    try:
+        product_info = ProductInfo.objects.get(id=product_info_id)
+        response = requests.get(product_image_url)
+        product_info.product_image.save(f'Product id {product_info.product_id}', ContentFile(response.content), save=True)
+
+    except ProductInfo.DoesNotExist:
+        pass
+
+
+
+@shared_task()
+def upload_avatar_task(user_id, avatar_url):
+    try:
+        user = User.objects.get(id=user_id)
+        response = requests.get(avatar_url)
+        user.avatar.save(f'User_ID_{user_id}_avatar', ContentFile(response.content), save=True)
+
+    except User.DoesNotExist:
+        pass
 
 
 @shared_task()

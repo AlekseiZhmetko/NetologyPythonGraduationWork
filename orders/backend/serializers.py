@@ -58,12 +58,14 @@ class ProductParameterSerializer(serializers.ModelSerializer):
 class ProductInfoSerializer(serializers.ModelSerializer):
     product = ProductSerializer(read_only=True)
     product_parameters = ProductParameterSerializer(read_only=True, many=True)
-    product_image = serializers.ImageField(write_only=True)
+    product_image =serializers.ImageField(write_only=True, required=False, default=None)
+    # external_id = serializers.IntegerField(source='id')
 
     class Meta:
         model = ProductInfo
-        fields = ('id', 'product', 'model', 'shop', 'quantity', 'price', 'product_parameters', 'shop_id',
+        fields = ('id', 'external_id', 'product', 'model', 'shop', 'quantity', 'price', 'price_rrc', 'product_parameters', 'shop_id',
                   'product_image')
+        # fields = '__all__'
         read_only_fields = ('id',)
 
 
